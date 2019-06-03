@@ -81,7 +81,7 @@ def make_interim_stockpup():
     # 'Cumulative dividends per share', #  Dividents from 1st reporting quarter until now. Irrelevant
     # 'Price', 'Price high', 'Price low', # Will get prices from yahoo_quotes
 
-    cols = col_info + col_income + col_cf + col_ratio
+    cols = col_info + col_balance + col_income + col_cf + col_ratio
     stockpup = stockpup[cols]
     print(stockpup.sample(10))
     stockpup.to_csv(base_data_path + interim_data_path + 'stockpup_interim_data.csv')
@@ -128,6 +128,7 @@ def make_interim_yahoo_quotes():
         # ticker_quotes['Adj Close'] = transformer.transform(ticker_quotes[['Adj Close']])
 
         # Order columns
+
         ticker_quotes = ticker_quotes[['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume',
                                        'ma10', 'ma22', 'ma252', 'midp10', 'midp22', 'midp252', 'mfi10', 'mfi22', 'mfi252',
                                        'rsi10', 'rsi22', 'rsi252', 'obv', 'vol10', 'vol22', 'vol252']]
@@ -149,7 +150,7 @@ def make_interim_edgar():
         try:
             ticker_edgar = pd.read_csv(base_data_path + raw_edgar_path + ticker + '.csv', index_col=0)
         except FileNotFoundError:
-            print('File doesn\'t exists:', ticker)
+            print('File doesn\'t exists:', ticker) # Todo: possible filing on a day when markets are closed
             continue
         ticker_edgar['Filing date'] = pd.to_datetime(ticker_edgar['Filing date'].astype(str), format='%Y%m%d')
         ticker_edgar['Quarter end'] = pd.to_datetime(ticker_edgar['Quarter end'].astype(str), format='%Y%m%d')
@@ -162,6 +163,7 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
     tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
     indexes = pd.read_csv(base_data_path + 'interim/indexes.csv', index_col=0)
     stockpup = pd.read_csv(base_data_path + interim_data_path + 'stockpup_interim_data.csv', index_col=0)
+
     yahoo_info = pd.read_csv(base_data_path + interim_data_path + 'yahoo_info_interim_data.csv', index_col=0)
     interim_data_row = {}
 
@@ -181,7 +183,9 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
         ticker_quotes.dropna(axis=0, inplace=True)
         ticker_stockpup = stockpup[stockpup['Ticker'] == ticker]
         ticker_stockpup = ticker_stockpup.sort_values(by='Quarter end')
+
         for _, row in ticker_stockpup.iterrows():
+
             # Look-up filing date for quarter
             mask = (ticker_edgar['Quarter end'] == row['Quarter end']) & ((ticker_edgar['Type'] == '10-K') | (ticker_edgar['Type'] == '10-Q'))
             try:
@@ -229,110 +233,63 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
 
             # Yahoo_info
             interim_data_row['Sector'] = yahoo_info.loc[yahoo_info['Ticker'] == ticker, 'Sector label'].values[0]
+            interim_data_row['Industry'] = yahoo_info.loc[yahoo_info['Ticker'] == ticker, 'Industry label'].values[0]
             ticker_interim_data = ticker_interim_data.append({**row.to_dict(), **interim_data_row}, ignore_index=True)
-        columns = ['Ticker', 'Filing date', 'Quarter start', 'Quarter end',
-                   'Open', 'Close', 'Cl_Max', 'Cl_Mean', 'Cl_Min', 'Cl_Std', 'O_ma252', 'C_ma252',
-                   'Asset turnover',
-                   'Assets',
-                   'Book value of equity per share',
-                   'Capital expenditures',
-                   'Cash at end of period',
-                   'Cash change during period',
-                   'Cash from financing activities',
-                   'Cash from investing activities',
-                   'Cash from operating activities',
-                   'Current Assets',
-                   'Current Liabilities',
-                   'Current ratio',
-                   'Dividend payout ratio',
-                   'Dividend per share',
-                   'EPS basic',
-                   'EPS diluted',
-                   'Earnings',
-                   'Earnings available for common stockholders',
-                   'Equity to assets ratio',
-                   'Free cash flow per share',
-                   'Goodwill & intangibles',
-                   'Liabilities',
-                   'Long-term debt',
-                   'Long-term debt to equity ratio',
-                   'Net margin',
-                   'Non-controlling interest',
-                   'P/B ratio',
-                   'P/E ratio',
-                   'Preferred equity',
-                   'ROA',
-                   'ROE',
-                   'Revenue',
-                   'Sector',
-                   'Shareholders equity',
-                   'Shares',
-                   'Shares split adjusted',
-                   'Split factor',
-                   '^DJI C_ma252', '^DJI Cl_Max', '^DJI Cl_Mean', '^DJI Cl_Min', '^DJI Cl_Std', '^DJI Close', '^DJI O_ma252', '^DJI Open',
-                   '^FVX C_ma252', '^FVX Cl_Max', '^FVX Cl_Mean', '^FVX Cl_Min', '^FVX Cl_Std', '^FVX Close', '^FVX O_ma252', '^FVX Open',
-                   '^GSPC C_ma252', '^GSPC Cl_Max', '^GSPC Cl_Mean', '^GSPC Cl_Min', '^GSPC Cl_Std', '^GSPC Close', '^GSPC O_ma252', '^GSPC Open',
-                   '^IRX C_ma252', '^IRX Cl_Max', '^IRX Cl_Mean', '^IRX Cl_Min', '^IRX Cl_Std', '^IRX Close', '^IRX O_ma252', '^IRX Open',
-                   '^IXIC C_ma252', '^IXIC Cl_Max', '^IXIC Cl_Mean', '^IXIC Cl_Min', '^IXIC Cl_Std', '^IXIC Close', '^IXIC O_ma252', '^IXIC Open',
-                   '^N225 C_ma252', '^N225 Cl_Max', '^N225 Cl_Mean', '^N225 Cl_Min', '^N225 Cl_Std', '^N225 Close', '^N225 O_ma252', '^N225 Open',
-                   '^TNX C_ma252', '^TNX Cl_Max', '^TNX Cl_Mean', '^TNX Cl_Min', '^TNX Cl_Std', '^TNX Close', '^TNX O_ma252', '^TNX Open',
-                   '^TYX C_ma252', '^TYX Cl_Max', '^TYX Cl_Mean', '^TYX Cl_Min', '^TYX Cl_Std', '^TYX Close', '^TYX O_ma252', '^TYX Open',
-                   '^VIX C_ma252', '^VIX Cl_Max', '^VIX Cl_Mean', '^VIX Cl_Min', '^VIX Cl_Std', '^VIX Close', '^VIX O_ma252', '^VIX Open'
-                   ]
+
+
+        # CLEAN-UP
+        # Remove and reorder columns
+        col_info = ['Ticker', 'Filing date','Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
+        # Balance sheet statement
+        col_balance = ['Assets', 'Current Assets', 'Liabilities', 'Current Liabilities', 'Shareholders equity',
+                       'Non-controlling interest', 'Preferred equity', 'Goodwill & intangibles', 'Long-term debt']
+        # Income statement
+        col_income = ['Revenue', 'Earnings', 'Earnings available for common stockholders',
+                      'EPS basic', 'EPS diluted', 'Dividend per share']
+        # Cashflow statement
+        col_cf = ['Cash from operating activities', 'Cash from investing activities', 'Cash from financing activities',
+                  'Cash change during period', 'Cash at end of period', 'Capital expenditures']
+        # Ratio's
+        col_ratio = ['ROE', 'ROA', 'Book value of equity per share', 'P/B ratio', 'P/E ratio',
+                     'Dividend payout ratio', 'Long-term debt to equity ratio',
+                     'Equity to assets ratio', 'Net margin', 'Asset turnover', 'Free cash flow per share', 'Current ratio']
+        col_quotes = ['Open', 'Close', 'Cl_Max', 'Cl_Mean', 'Cl_Min', 'Cl_Std', 'O_ma252', 'C_ma252',
+                      '^DJI C_ma252', '^DJI Cl_Max', '^DJI Cl_Mean', '^DJI Cl_Min', '^DJI Cl_Std', '^DJI Close', '^DJI O_ma252', '^DJI Open',
+                      '^FVX C_ma252', '^FVX Cl_Max', '^FVX Cl_Mean', '^FVX Cl_Min', '^FVX Cl_Std', '^FVX Close', '^FVX O_ma252', '^FVX Open',
+                      '^GSPC C_ma252', '^GSPC Cl_Max', '^GSPC Cl_Mean', '^GSPC Cl_Min', '^GSPC Cl_Std', '^GSPC Close', '^GSPC O_ma252', '^GSPC Open',
+                      '^IRX C_ma252', '^IRX Cl_Max', '^IRX Cl_Mean', '^IRX Cl_Min', '^IRX Cl_Std', '^IRX Close', '^IRX O_ma252', '^IRX Open',
+                      '^IXIC C_ma252', '^IXIC Cl_Max', '^IXIC Cl_Mean', '^IXIC Cl_Min', '^IXIC Cl_Std', '^IXIC Close', '^IXIC O_ma252', '^IXIC Open',
+                      '^N225 C_ma252', '^N225 Cl_Max', '^N225 Cl_Mean', '^N225 Cl_Min', '^N225 Cl_Std', '^N225 Close', '^N225 O_ma252', '^N225 Open',
+                      '^TNX C_ma252', '^TNX Cl_Max', '^TNX Cl_Mean', '^TNX Cl_Min', '^TNX Cl_Std', '^TNX Close', '^TNX O_ma252', '^TNX Open',
+                      '^TYX C_ma252', '^TYX Cl_Max', '^TYX Cl_Mean', '^TYX Cl_Min', '^TYX Cl_Std', '^TYX Close', '^TYX O_ma252', '^TYX Open',
+                      '^VIX C_ma252', '^VIX Cl_Max', '^VIX Cl_Mean', '^VIX Cl_Min', '^VIX Cl_Std', '^VIX Close', '^VIX O_ma252', '^VIX Open']
+        # Removed columns
+        # 'Cumulative dividends per share', #  Dividents from 1st reporting quarter until now. Irrelevant
+        # 'Price', 'Price high', 'Price low', # Will get prices from yahoo_quotes
         try:
+            # columns = col_info  # + col_balance+ col_income + col_cf + col_ratio + col_quotes
+            # ticker_interim_data = ticker_interim_data[columns]
+            # print(ticker_interim_data.columns.values)
+            # columns = col_info + col_balance  # + col_income + col_cf + col_ratio + col_quotes
+            # ticker_interim_data = ticker_interim_data[columns]
+            # columns = col_info + col_balance + col_income  # + col_cf + col_ratio + col_quotes
+            # ticker_interim_data = ticker_interim_data[columns]
+            # columns = col_info + col_balance + col_income + col_cf  # + col_ratio + col_quotes
+            # ticker_interim_data = ticker_interim_data[columns]
+            # columns = col_info + col_balance + col_income + col_cf + col_ratio  # + col_quotes
+            # ticker_interim_data = ticker_interim_data[columns]
+
+            columns = col_info + col_balance + col_income + col_cf + col_ratio + col_quotes
             ticker_interim_data = ticker_interim_data[columns]
-        except:
-            blacklist.append(ticker)
+        except (KeyError, TypeError):
+            print(ticker_interim_data.columns.values)
+            print('=' * 120)
+            print(columns)
+            # raise
+
         ticker_interim_data.to_csv(base_data_path + interim_data_path + 'interim_data/' + ticker + '.csv')
         print(ticker_interim_data.head(15))
         print('-' * 200)
-
-    print('#' * 120)
-    print(blacklist)
-
-
-def adjust_inflation(df: DataFrame) -> DataFrame:
-    # Todo: Implement adjust_inflation
-    ticker = 'AAPL'
-    ticker_interim_data = pd.read_csv(base_data_path + interim_data_path + 'interim_data/' + ticker + '.csv', index_col=0)
-    inflation = pd.read_csv(base_data_path + interim_data_path + 'economic_indicators/monthly_inflation_rates.csv', index_col=0)
-    print(type(inflation['Date'][0]))
-    ticker_interim_data['tmp_left_on'] = ticker_interim_data['Filing date'].str.rsplit('-', n=1, expand=True)[0]  # yyyy-mm
-    inflation['tmp_right_on'] = inflation['Date'].str.rsplit('-', n=1, expand=True)[0]  # yyyy-mm
-    # merge dataframe
-    ticker_interim_data = pd.merge(ticker_interim_data, inflation, how='left', left_on='tmp_left_on', right_on='tmp_right_on')
-    # Clean up
-    ticker_interim_data.rename(index=str, columns={'Value': 'Inflation'}, inplace=True)
-    ticker_interim_data.drop(['tmp_left_on', 'tmp_right_on', 'Date'], axis=1, inplace=True)
-    print(ticker_interim_data)
-
-
-def make_labels(fwd_quarters=5):
-    tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
-    df = pd.DataFrame()
-    for ticker in tickers['Ticker'].values:
-        # if ticker>'B': continue
-        print(ticker)
-        # print(ticker_interim_data.loc[ticker_interim_data['Close'].pct_change(periods=-fwd_quarters)>0.1,'Close'])
-        # print(ticker_interim_data.loc[ticker_interim_data['^DJI Close'].pct_change(periods=-fwd_quarters)>0.1,['Filing date', '^DJI Close']])
-        try:
-            ticker_interim_data = pd.read_csv(base_data_path + interim_data_path + 'interim_data/' + ticker + '.csv', index_col=0)
-            x = ticker_interim_data['Close'].pct_change(periods=fwd_quarters).shift(-fwd_quarters)
-            dji = ticker_interim_data['^DJI Close'].pct_change(periods=fwd_quarters).shift(-fwd_quarters)
-            sp500 = ticker_interim_data['^GSPC Close'].pct_change(periods=fwd_quarters).shift(-fwd_quarters)
-            nasdaq = ticker_interim_data['^IXIC Close'].pct_change(periods=fwd_quarters).shift(-fwd_quarters)
-            ref = (dji + sp500 + nasdaq) / 3
-            df = pd.concat([df, x-ref], axis=0)
-            df.dropna(inplace=True)
-        except (KeyError,FileNotFoundError):
-            print('------------------->',ticker)
-    df.to_csv('xxx.csv')
-    df.plot.hist(bins=100)
-    plt.show()
-
-
-def combine_interim_data():
-    pass
 
 
 if __name__ == '__main__':
@@ -345,9 +302,7 @@ if __name__ == '__main__':
     # make_interim_data(start_from='A', end_till='E', write_log=False)
     # make_interim_data(start_from='E',end_till='I', write_log=False)
     # make_interim_data(start_from='I',end_till='M', write_log=False)
-    # make_interim_data(start_from='M',end_till='Q', write_log=False) *
-    # make_interim_data(start_from='Q',end_till='U', write_log=False)
-    # make_interim_data(start_from='U',end_till='Z', write_log=False)
-    make_labels()
-    #
-    # adjust_inflation()
+    # make_interim_data(start_from='M', end_till='Q', write_log=False)
+    # make_interim_data(start_from='Q', end_till='U', write_log=False)
+    # make_interim_data(start_from='U', end_till='Z', write_log=False)
+    pass
