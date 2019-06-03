@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-
+# Todo: See: https://yashuseth.blog/2018/07/22/pytorch-neural-network-for-tabular-data-with-categorical-embeddings/
 class Linear3Layers(nn.Module):
     """
     Simple 3 layer linear neural network.

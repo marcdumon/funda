@@ -103,7 +103,7 @@ def _scale_final_dataset(df: DataFrame) -> DataFrame:
     # df.reset_index(inplace=True)
 
     # Add scale = magnitude of order of revenue
-    df['Scale'] = np.around(np.log10(df['Revenue'].values))
+    df.loc[df['Revenue'] > 0, 'Scale'] = np.around(np.log10(df.loc[df['Revenue'] > 0, 'Revenue'].values))
 
     col_info = ['Ticker', 'Filing date', 'Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
     # Balance sheet statement
@@ -149,7 +149,7 @@ def _scale_final_dataset(df: DataFrame) -> DataFrame:
                    ] + col_ratio
     col_scale = [x for x in cols if x not in cols_remove]
     # scaler = RobustScaler(quantile_range=(.01, .99))
-    scaler = MinMaxScaler(feature_range=(-1,1))
+    scaler = MinMaxScaler(feature_range=(-1, 1))
 
     def f(x):
         if not x.sum(): return x  # column contains only null-values (fi: AAN Current Assets)
@@ -165,27 +165,100 @@ def _scale_final_dataset(df: DataFrame) -> DataFrame:
 
 
 def combine_interim_data():
-    final_dataset=pd.DataFrame()
+    final_dataset = pd.DataFrame()
     tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
     for ticker in tickers['Ticker'].values:
         print(ticker)
         try:
-            df=pd.read_csv(base_data_path+processed_data_path+'scaled_ticker_data/' + ticker + '.csv',index_col=0)
-            final_dataset=pd.concat([final_dataset,df])
+            df = pd.read_csv(base_data_path + processed_data_path + 'scaled_ticker_data/' + ticker + '.csv', index_col=0)
+            final_dataset = pd.concat([final_dataset, df])
         except FileNotFoundError:
             print('=====>', ticker)
-    final_dataset.to_csv(base_data_path+processed_data_path+'final_dataset.csv')
+    final_dataset.to_csv(base_data_path + processed_data_path + 'final_dataset.csv')
 
 
-def normalize_final_dataset(df):
+def split_dataset():
+    tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
+    # Takeout companies
+    s = tickers.sample(20)
+    print(s)
+    print(tickers.drop(s.index))
+    # Takeout year
     pass
-    normalized_df = (df - df.mean()) / df.std()
+
+
+def split_normalize_final_dataset(all_df, n_valid_test_tickers=100, n_valid_test_years=2):
+    all_df.reset_index(inplace=True)
+    all_df.drop(['index'], axis=1, inplace=True)
+
+    tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
+
+    # Takeout companies
+    valid_test_tickers = tickers.sample(n_valid_test_tickers)
+    valid_tickers = valid_test_tickers.head(int(n_valid_test_tickers / 2))
+    test_tickers = valid_test_tickers.tail(int(n_valid_test_tickers / 2))
+    train_tickers = tickers.drop(valid_test_tickers.index)
+
+    train_df = all_df[all_df['Ticker'].isin(train_tickers['Ticker'])]
+    valid_df = all_df[all_df['Ticker'].isin(valid_tickers['Ticker'])]
+    test_df = all_df[all_df['Ticker'].isin(test_tickers['Ticker'])]
+
+    # Remove years
+    valid_year = str(int(train_df['Filing date'].max()[:4]) - n_valid_test_years / 1)
+    test_year = str(int(train_df['Filing date'].max()[:4]) - n_valid_test_years / 2)
+
+    valid_mask = (train_df['Filing date'] > valid_year) & (train_df['Filing date'] < test_year)
+    test_mask = (train_df['Filing date'] > test_year)
+    train_mask = (train_df['Filing date'] < valid_year)
+
+    valid_df = pd.concat([valid_df, train_df[valid_mask]])
+    test_df = pd.concat([test_df, train_df[test_mask]])
+    train_df = train_df[train_mask]
+    print(all_df.shape, test_df.shape[0] + valid_df.shape[0] + train_df.shape[0])
+
+    # Normalize
+    non_normalise_cols = ['Ticker', 'Filing date', 'Quarter start', 'Quarter end', 'Sector', 'Industry', 'Scale', 'Label']
+    normalize_cols = [c for c in train_df.columns.values if c not in non_normalise_cols]
+    mean = train_df[normalize_cols].mean()
+    std = train_df[normalize_cols].std()
+
+    train_df[normalize_cols] = (train_df[normalize_cols] - mean) / std
+    valid_df[normalize_cols] = (valid_df[normalize_cols] - mean) / std
+    test_df[normalize_cols] = (test_df[normalize_cols] - mean) / std
+    print(train_df['Scale'].min())
+    print(test_df['Scale'].min())
+    print(valid_df['Scale'].min())
+
+    print(train_df.index[np.isinf(train_df['Scale'])])
+
+    train_df.to_csv(base_data_path + processed_data_path + 'train_dataset.csv')
+    valid_df.to_csv(base_data_path + processed_data_path + 'valid_dataset.csv')
+    test_df.to_csv(base_data_path + processed_data_path + 'test_dataset.csv')
+    # Todo: why are there so many labels=8 ???
+    train_df['Label'].hist()
+    plt.show()
+    valid_df['Label'].hist()
+    plt.show()
+    test_df['Label'].hist()
+    plt.show()
+
+
+def handle_nan(df):
+    nan_columns = df.columns[df.isna().sum() > 0]
+    nan_mask = df.loc[:, nan_columns].isna()
+    # replace nan with 0, the mean of the normalised columns
+    df = df.fillna(0)
+    # add mask as feature
+    nan_mask.columns = ['Mask {}'.format(c) for c in nan_mask.columns]
+    df = pd.concat([df, nan_mask.astype(int)], axis=1)
+    return df
+
 
 if __name__ == '__main__':
     # make_labels()
     # tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
     # for ticker in tickers['Ticker'].values:
-    #     # if ticker<'ACV': continue
+    #     # if ticker<'CELG': continue
     #     print(ticker)
     #     try:
     #         ticker_interim_data = pd.read_csv(base_data_path + interim_data_path + 'interim_data/' + ticker + '.csv', index_col=0)
@@ -198,3 +271,12 @@ if __name__ == '__main__':
     #     except (FileNotFoundError):
     #         print('=====>', ticker)
     # combine_interim_data()
+    # final_dataset = pd.read_csv(base_data_path + processed_data_path + 'final_dataset.csv', index_col=0)
+    #
+    # split_normalize_final_dataset(final_dataset)
+    for ds in ['train', 'valid', 'test']:
+        print(ds)
+        df = pd.read_csv(base_data_path + processed_data_path + '{}_dataset.csv'.format(ds), index_col=0)
+        df=handle_nan(df)
+        df.to_csv(base_data_path + processed_data_path + '{}_dataset.csv'.format(ds))
+    pass
