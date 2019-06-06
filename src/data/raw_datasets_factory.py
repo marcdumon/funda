@@ -5,12 +5,13 @@
 # --------------------------------------------------------------------------------------------------------
 import os
 import re
-from time import strftime, gmtime
+from time import strftime, gmtime, sleep
 from socket import gaierror
 from zipfile import ZipFile, ZIP_DEFLATED
 
 import numpy as np
 import pandas as pd
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
@@ -288,8 +289,85 @@ def make_yahoo_info_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', head
 #######################################################################################################################
 # EDGAR
 #######################################################################################################################
-def make_edgar_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', save_filing: bool = True,
-                    redownload: bool = False, headless: bool = True):
+
+# Directory structure See: https://www.sec.gov/edgar/searchedgar/accessing-edgar-data.htm
+
+def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True):
+    driver = _get_selenium_driver(headless=headless)
+    tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
+    for _, ticker in enumerate(tickers['ticker']):
+        if (ticker < start_ticker) | (ticker > end_ticker): continue
+        # if ticker != 'A': continue
+        print('{}: Process Edgar filing list: {}'.format(strftime("%Y-%m-%d %H:%M:%S", gmtime()), ticker))
+
+        ticker_filing_df = pd.DataFrame(columns=['ticker', 'type', 'filing_date', 'period_of_report', 'items', 'accession_no'])
+        try:
+            params = {'CIK': ticker,  # Edgar allows ticker as CIK
+                      'type': '',  # all or 10-K, 10-Q, 8-K, 11-K, ... Full list at https://www.sec.gov/forms
+                      'owner': 'exclude',  # exclude or include.
+                      'output': 'xml',  # xml, html
+                      'dateb': '',  # Prior to yyyymmdd
+                      'count': 100,  # Max results per page. 100 quarters is +/- 33 years if no amends (3x10Q + 1x10k per year)
+                      }
+            base_url = 'https://www.sec.gov/cgi-bin/browse-edgar' \
+                       '?action=getcompany&CIK={CIK}&type={type}&dateb={dateb}&owner={owner}&count={count}&output={output}'.format(**params)
+
+            # collect all links
+            url_list = []
+            stop = False
+            while not stop:
+                print('{}: Collect links: {}'.format(strftime("%Y-%m-%d %H:%M:%S", gmtime()), len(url_list)))
+                url = base_url + '&start={}'.format(len(url_list))
+                driver.get(url)
+                filing_tabel = driver.find_element_by_xpath('//*[@id="results"]/table')
+                stop = True  # Assume last page with no elements in the tabel
+                for element in filing_tabel.find_elements_by_tag_name('a'):  # Todo: are tags easier than xpath's here?
+                    link = element.get_attribute('href')
+                    url_list.append(link)
+                    stop = False  # This was not the last page
+            url_list = set(url_list)  # remove duplcate links if they exist
+
+            # Goto each link and scrape info
+            for url in url_list:
+                driver.get(url)
+                # Xpaths to data on Filing Detail page
+                var_xpaths = [['type', '//*[@id="formName"]/strong'],
+                              ['period_of_report', '//*[@id="formDiv"]/div[2]/div[2]/div[2]'],
+                              ['filing_date', '//*[@id="formDiv"]/div[2]/div[1]/div[2]'],  # Todo: period of report not always correct: example Ebay
+                              ['items', '//*[@id="formDiv"]/div[2]/div[3]/div[2]'],
+                              ['accession_no', '//*[@id="secNum"]']]
+                row = {}
+                for var, xpath in var_xpaths:
+                    try:
+                        row[var] = driver.find_element_by_xpath(xpath).text
+                    except NoSuchElementException:
+                        pass
+                ticker_filing_df = ticker_filing_df.append(row, ignore_index=True)
+                ticker_filing_df['ticker'] = ticker
+
+            ticker_filing_df['type'] = ticker_filing_df['type'].str.split('Form ', expand=True)[1]
+            ticker_filing_df['accession_no'] = ticker_filing_df['accession_no'].str.split('SEC Accession No. ', expand=True)[1]
+            # Todo: period of report not always correct: example Ebay
+            ticker_filing_df[ticker_filing_df.period_of_report.isna()] = 'XXX'  # With nan's in Series we can't do ~df
+            ticker_filing_df[~ticker_filing_df['period_of_report'].str.contains(r'^[12]\d{3}-')] = np.nan
+
+            ticker_filing_df = ticker_filing_df.sort_values(by='filing_date')
+            ticker_filing_df.to_csv(edgar_data_path + ticker + '.csv')
+        except NoSuchElementException:
+            tickers = _blacklist_ticker(ticker, 'bl_edgar')
+
+
+# def make_edgar_insider_transaction_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True):
+#     driver = _get_selenium_driver(headless=headless)
+#     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
+#     for _, ticker in enumerate(tickers['ticker']):
+#         if (ticker < start_ticker) | (ticker > end_ticker): continue
+#
+#
+def download_edgar_filings(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', filing_types=None,
+                           redownload: bool = False, headless: bool = True):
+    # Todo: use this routine for downloading any filing.
+
     # Todo: implement download missing filings
     # Todo: implement reconstructing edgar raw files
     # Todo: it's more efficient to scrape filing dates from http://rankandfiled.com/
@@ -297,11 +375,12 @@ def make_edgar_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', save_fili
 
     :param start_ticker:
     :param end_ticker:
-    :param save_filing:
+    :param filing_types:
     :param redownload:
     :param headless:
     :return:
     """
+    if filing_types is None: filing_types = ['10-K', '10-Q']
     driver = _get_selenium_driver(headless=headless)
     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
     tickers_downloaded = mos.get_filenames(edgar_data_path, ext='csv')
@@ -316,9 +395,8 @@ def make_edgar_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', save_fili
         if (not redownload) & (ticker in tickers_downloaded): continue
 
         print('{}: Process Edgar ticker: {}'.format(strftime("%Y-%m-%d %H:%M:%S", gmtime()), ticker))
-        ticker_filing_list = pd.DataFrame(columns=['ticker', 'quarter_end', 'filing_date', 'link', 'fname'])
         try:
-            for type in ['10-K', '10-Q']:
+            for type in filing_types:
                 params = {'CIK': ticker,  # Edgar allows ticker as CIK
                           'type': type,  # all or 10-K, 10-Q, 8-K, 11-K, ... Full list at https://www.sec.gov/forms
                           'owner': 'exclude',  # exclude or include.
@@ -339,7 +417,7 @@ def make_edgar_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', save_fili
                     link = link[:link.rfind("-")] + '.txt'
                     url_list.append(link)
 
-                # Goto each link, extract type, period, filing date and save filing
+                # Goto each link and save filing
                 for link in url_list:
                     print(strftime("%Y-%m-%d %H:%M:%S", gmtime()), link)
                     driver.get(link)
@@ -348,21 +426,14 @@ def make_edgar_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', save_fili
                     statement = driver.page_source
                     filing_type = re.search('(?<=CONFORMED SUBMISSION TYPE:\t)(.*)', statement).group(1)
                     quarter_end = re.search('(?<=CONFORMED PERIOD OF REPORT:\t)(.*)', statement).group(1)
-                    filing_date = re.search('(?<=FILED AS OF DATE:\t\t)(.*)', statement).group(1)  # Todo: make more generic without \t\t
                     filing_type = filing_type.replace('/', '-')  # for 10-K/A etc
+
+                    # Save the filing
                     fname = '{}_{}_{}.txt'.format(ticker, quarter_end, filing_type)
-
-                    row = {'ticker': ticker, 'type': filing_type, 'quarter_end': quarter_end, 'filing_date': filing_date, 'link': link, 'fname': fname}
-                    ticker_filing_list = ticker_filing_list.append(row, ignore_index=True)
-
-                    if save_filing:
-                        directory = edgar_data_path + 'filings/' + ticker + '/'
-                        if not mos.check_dir_exists(directory)['success']: mos.create_directory(directory)
-                        with open(directory + fname, 'w') as f:
-                            f.write(statement)
-
-            if not ticker_filing_list.empty:
-                ticker_filing_list.to_csv(edgar_data_path + ticker + '.csv')
+                    directory = edgar_data_path + 'filings/' + ticker + '/'
+                    if not mos.check_dir_exists(directory)['success']: mos.create_directory(directory)
+                    with open(directory + fname, 'w') as f:
+                        f.write(statement)
 
         except AttributeError:
             # Ex: https://www.sec.gov/Archives/edgar/data/815094/0000950109-95-000983.txt
@@ -386,7 +457,7 @@ def _blacklist_ticker(ticker: str, bl_column: str) -> pd.DataFrame:
 
     :param ticker: ticker to blacklist
     :param bl_column: blacklist column name
-    :return: None
+    :return: tickers
     """
     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
     tickers.loc[tickers['ticker'] == ticker, 'bl'] = True
@@ -402,7 +473,9 @@ def _get_selenium_driver(headless: bool = True, log: bool = False):
     It returns a selenium web driver.
 
     """
+
     chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option("detach", True)  # Keep browser open
     chrome_options.headless = headless
     chrome_options.add_argument('blink-settings=imagesEnabled=false')  # Don't download images
     chrome_options.add_argument('--no-sandbox')  # selenium.common.exceptions.WebDriverException: Message: unknown error: session deleted because of page crash
@@ -479,6 +552,8 @@ def x():
 
 
 if __name__ == '__main__':
+    start_ticker = input('Start ticker = ')
+    end_ticker = input('End ticker = ')
     # make_tickers()
     # make_stockpup_data()
     # data_clean_stockpup()
@@ -486,4 +561,5 @@ if __name__ == '__main__':
     # make_yahoo_info_data(headless=True)
     # make_edgar_data('ABM', 'E', redownload=True, headless=False)
     # x()
+    make_edgar_filing_list(start_ticker, end_ticker)
     pass
