@@ -292,12 +292,16 @@ def make_yahoo_info_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', head
 
 # Directory structure See: https://www.sec.gov/edgar/searchedgar/accessing-edgar-data.htm
 
-def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True):
+def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True, redownload: bool = False):
+    # Todo: Ex IBM: 424B5 filings return blank line, Ex EQ: SC 13G/A filinges return blank line
+    # Todo: Ex BAC: Has huge amounts of uninteresting filings (424B2,FWP,C ...) and breaks with >2000 filings => only use limited filing types
+    tickers_downloaded = mos.get_filenames(edgar_data_path, ext='csv')
+    tickers_downloaded = [t.split('.csv')[0] for t in tickers_downloaded]
     driver = _get_selenium_driver(headless=headless)
     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
     for _, ticker in enumerate(tickers['ticker']):
         if (ticker < start_ticker) | (ticker > end_ticker): continue
-        # if ticker != 'A': continue
+        if (not redownload) & (ticker in tickers_downloaded): continue
         print('{}: Process Edgar filing list: {}'.format(strftime("%Y-%m-%d %H:%M:%S", gmtime()), ticker))
 
         ticker_filing_df = pd.DataFrame(columns=['ticker', 'type', 'filing_date', 'period_of_report', 'items', 'accession_no'])
@@ -340,21 +344,25 @@ def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', he
                 for var, xpath in var_xpaths:
                     try:
                         row[var] = driver.find_element_by_xpath(xpath).text
-                    except NoSuchElementException:
+                    except NoSuchElementException as e:
                         pass
                 ticker_filing_df = ticker_filing_df.append(row, ignore_index=True)
                 ticker_filing_df['ticker'] = ticker
 
+            if ticker_filing_df.empty: raise NoSuchElementException  # Ex: LIZ
+
+
             ticker_filing_df['type'] = ticker_filing_df['type'].str.split('Form ', expand=True)[1]
             ticker_filing_df['accession_no'] = ticker_filing_df['accession_no'].str.split('SEC Accession No. ', expand=True)[1]
             # Todo: period of report not always correct: example Ebay
-            ticker_filing_df[ticker_filing_df.period_of_report.isna()] = 'XXX'  # With nan's in Series we can't do ~df
+            ticker_filing_df[ticker_filing_df['period_of_report'].isna()] = 'XXX'  # With nan's in Series we can't do ~df
             ticker_filing_df[~ticker_filing_df['period_of_report'].str.contains(r'^[12]\d{3}-')] = np.nan
 
             ticker_filing_df = ticker_filing_df.sort_values(by='filing_date')
             ticker_filing_df.to_csv(edgar_data_path + ticker + '.csv')
         except NoSuchElementException:
             tickers = _blacklist_ticker(ticker, 'bl_edgar')
+
 
 
 # def make_edgar_insider_transaction_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True):
@@ -561,5 +569,5 @@ if __name__ == '__main__':
     # make_yahoo_info_data(headless=True)
     # make_edgar_data('ABM', 'E', redownload=True, headless=False)
     # x()
-    make_edgar_filing_list(start_ticker, end_ticker)
+    make_edgar_filing_list(start_ticker, end_ticker, headless=True)
     pass
