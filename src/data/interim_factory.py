@@ -28,7 +28,7 @@ pd.set_option('display.width', 1500)
 data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/'
 raw_data_path = data_path + 'raw/'
 stockpup_path = raw_data_path + 'stockpup/'
-yahoo_quotes_path = raw_data_path + 'yahoo_quotes/'
+yahoo_quotes_path = raw_data_path + 'yahoo_quotes/csv/'
 economic_indicators_path = raw_data_path + 'economic_indicators/'
 
 yahoo_info_path = raw_data_path + 'yahoo_info/'
@@ -45,13 +45,14 @@ print_block = '\n' + '#' * 120 + '\n'
 
 def make_tickers():
     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
-    indexes = pd.DataFrame(['^GSPC', '^DJI', '^IXIC', '^N225', '^VIX', '^TNX', '^TYX', '^FVX', '^IRX'], columns=['Ticker'])
+    indexes = pd.DataFrame(['^GSPC', '^DJI', '^IXIC', '^N225', '^VIX', '^TNX', '^TYX', '^FVX', '^IRX'], columns=['ticker'])
     # Remove blacklisted tickers
     tickers = tickers.loc[tickers['bl'] != True, 'ticker']
     tickers = tickers.reset_index()
+    tickers=tickers.drop('index', axis=1)
     tickers.to_csv(interim_data_path + 'tickers.csv')
     indexes.to_csv(interim_data_path + 'indexes.csv')
-
+make_tickers()
 
 def make_inflation():
     inflation = pd.read_csv(economic_indicators_path + 'monthly_inflation_rates.csv')
@@ -82,7 +83,7 @@ def make_stockpup():
     print(stockpup.shape)
     # Make dates
     stockpup['quarter_end'] = pd.to_datetime(stockpup['quarter_end'], format='%Y-%m-%d')
-    stockpup['quarter_start'] = stockpup['quarter_end'] - pd.DateOffset(months=3) + pd.offsets.MonthBegin(1)
+    stockpup['quarter_start'] = stockpup['quarter_end'] - pd.dateOffset(months=3) + pd.offsets.MonthBegin(1)
     # Reorder columns
     new_order = [0, -1] + [i + 1 for i in range(len(stockpup.columns) - 2)]  # put quarter_end on 2 place
     stockpup = stockpup[stockpup.columns[new_order]]
@@ -99,52 +100,41 @@ def make_stockpup():
     stockpup.to_csv(interim_data_path + 'stockpup.csv')
 
 
-def make_interim_yahoo_quotes():
-    tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
-    indexes = pd.read_csv(base_data_path + 'interim/indexes.csv', index_col=0)
-    tickers = np.concatenate([tickers['Ticker'].values, indexes['Ticker'].values])
+def make_yahoo_quotes():
+    tickers = pd.read_csv(interim_data_path+'tickers.csv', index_col=0)
+    indexes = pd.read_csv(interim_data_path + 'indexes.csv', index_col=0)
+    tickers = np.concatenate([tickers['ticker'].values, indexes['ticker'].values])
     for ticker in tickers:
         # if ticker!='AMZN': continue
         print(ticker)
-        ticker_quotes = pd.read_csv(base_data_path + raw_yahoo_quotes_path + '1d_' + ticker + '.csv', index_col=0)
+        ticker_quotes = pd.read_csv(yahoo_quotes_path + ticker + '.csv', index_col=0)
         # Remove nan rows
         ticker_quotes.dropna(axis=0, inplace=True)
-        ticker_quotes['Ticker'] = ticker
-        ticker_quotes['Date'] = pd.to_datetime(ticker_quotes['Date'], format='%Y-%m-%d')
+        ticker_quotes['ticker'] = ticker
+        ticker_quotes['date'] = pd.to_datetime(ticker_quotes['date'], format='%Y-%m-%d')
         # Add technical indicators
         # Todo: add money flow
-        ticker_quotes['ma10'] = talib.MA(ticker_quotes['Close'], timeperiod=10)
-        ticker_quotes['ma22'] = talib.MA(ticker_quotes['Close'], timeperiod=22)
-        ticker_quotes['ma252'] = talib.MA(ticker_quotes['Close'], timeperiod=252)
-        ticker_quotes['midp10'] = talib.MIDPRICE(ticker_quotes['High'], ticker_quotes['Low'], timeperiod=10)
-        ticker_quotes['midp22'] = talib.MIDPRICE(ticker_quotes['High'], ticker_quotes['Low'], timeperiod=22)
-        ticker_quotes['midp252'] = talib.MIDPRICE(ticker_quotes['High'], ticker_quotes['Low'], timeperiod=252)
-        ticker_quotes['rsi10'] = talib.RSI(ticker_quotes['Close'], timeperiod=10)
-        ticker_quotes['rsi22'] = talib.RSI(ticker_quotes['Close'], timeperiod=22)
-        ticker_quotes['rsi252'] = talib.RSI(ticker_quotes['Close'], timeperiod=252)
-        ticker_quotes['obv'] = talib.OBV(ticker_quotes['Close'], ticker_quotes['Volume'])
-        ticker_quotes['mfi10'] = talib.MFI(ticker_quotes['High'], ticker_quotes['Low'], ticker_quotes['Close'], ticker_quotes['Volume'], timeperiod=10)
-        ticker_quotes['mfi22'] = talib.MFI(ticker_quotes['High'], ticker_quotes['Low'], ticker_quotes['Close'], ticker_quotes['Volume'], timeperiod=22)
-        ticker_quotes['mfi252'] = talib.MFI(ticker_quotes['High'], ticker_quotes['Low'], ticker_quotes['Close'], ticker_quotes['Volume'], timeperiod=252)
-        ticker_quotes['vol10'] = ticker_quotes['Close'].pct_change().rolling(10).std(ddof=0) * (252 ** 0.5)
-        ticker_quotes['vol22'] = ticker_quotes['Close'].pct_change().rolling(22).std(ddof=0) * (252 ** 0.5)
-        ticker_quotes['vol252'] = ticker_quotes['Close'].pct_change().rolling(252).std(ddof=0) * (252 ** 0.5)
+        ticker_quotes['ma10'] = talib.MA(ticker_quotes['close'], timeperiod=10)
+        ticker_quotes['ma22'] = talib.MA(ticker_quotes['close'], timeperiod=22)
+        ticker_quotes['ma252'] = talib.MA(ticker_quotes['close'], timeperiod=252)
+        ticker_quotes['midp10'] = talib.MIDPRICE(ticker_quotes['high'], ticker_quotes['low'], timeperiod=10)
+        ticker_quotes['midp22'] = talib.MIDPRICE(ticker_quotes['high'], ticker_quotes['low'], timeperiod=22)
+        ticker_quotes['midp252'] = talib.MIDPRICE(ticker_quotes['high'], ticker_quotes['low'], timeperiod=252)
+        ticker_quotes['rsi10'] = talib.RSI(ticker_quotes['close'], timeperiod=10)
+        ticker_quotes['rsi22'] = talib.RSI(ticker_quotes['close'], timeperiod=22)
+        ticker_quotes['rsi252'] = talib.RSI(ticker_quotes['close'], timeperiod=252)
+        ticker_quotes['obv'] = talib.OBV(ticker_quotes['close'], ticker_quotes['volume'])
+        ticker_quotes['mfi10'] = talib.MFI(ticker_quotes['high'], ticker_quotes['low'], ticker_quotes['close'], ticker_quotes['volume'], timeperiod=10)
+        ticker_quotes['mfi22'] = talib.MFI(ticker_quotes['high'], ticker_quotes['low'], ticker_quotes['close'], ticker_quotes['volume'], timeperiod=22)
+        ticker_quotes['mfi252'] = talib.MFI(ticker_quotes['high'], ticker_quotes['low'], ticker_quotes['close'], ticker_quotes['volume'], timeperiod=252)
+        ticker_quotes['vol10'] = ticker_quotes['close'].pct_change().rolling(10).std(ddof=0) * (252 ** 0.5)
+        ticker_quotes['vol22'] = ticker_quotes['close'].pct_change().rolling(22).std(ddof=0) * (252 ** 0.5)
+        ticker_quotes['vol252'] = ticker_quotes['close'].pct_change().rolling(252).std(ddof=0) * (252 ** 0.5)
 
-        # Scale ohlc otherwise we can't compare diffent stocks
-        # price_range = np.concatenate([ticker_quotes[['High']].values, ticker_quotes[['Low']].values])
-        # transformer = RobustScaler(quantile_range=(1., 99.)).fit(price_range)  # Robust scaler avoids problems with outliers
-        # ticker_quotes['Open'] = transformer.transform(ticker_quotes[['Open']])
-        # ticker_quotes['High'] = transformer.transform(ticker_quotes[['High']])
-        # ticker_quotes['Low'] = transformer.transform(ticker_quotes[['Low']])
-        # ticker_quotes['Close'] = transformer.transform(ticker_quotes[['Close']])
-        # ticker_quotes['Adj Close'] = transformer.transform(ticker_quotes[['Adj Close']])
-
-        # Order columns
-
-        ticker_quotes = ticker_quotes[['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume',
+        ticker_quotes = ticker_quotes[['ticker', 'date', 'open', 'high', 'low', 'close', 'adj_close', 'volume',
                                        'ma10', 'ma22', 'ma252', 'midp10', 'midp22', 'midp252', 'mfi10', 'mfi22', 'mfi252',
                                        'rsi10', 'rsi22', 'rsi252', 'obv', 'vol10', 'vol22', 'vol252']]
-        ticker_quotes.to_csv(base_data_path + interim_data_path + 'yahoo_quotes/' + ticker + '.csv')
+        ticker_quotes.to_csv(interim_data_path + 'yahoo_quotes/' + ticker + '.csv')
 
 
 def make_interim_yahoo_info():
@@ -157,7 +147,7 @@ def make_interim_yahoo_info():
 
 def make_interim_edgar():
     tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
-    for ticker in tickers['Ticker'].values:
+    for ticker in tickers['ticker'].values:
         print(ticker)
         try:
             ticker_edgar = pd.read_csv(base_data_path + raw_edgar_path + ticker + '.csv', index_col=0)
@@ -166,7 +156,7 @@ def make_interim_edgar():
             continue
         ticker_edgar['Filing date'] = pd.to_datetime(ticker_edgar['Filing date'].astype(str), format='%Y%m%d')
         ticker_edgar['Quarter end'] = pd.to_datetime(ticker_edgar['Quarter end'].astype(str), format='%Y%m%d')
-        ticker_edgar = ticker_edgar[['Ticker', 'Quarter end', 'Filing date', 'Type']]
+        ticker_edgar = ticker_edgar[['ticker', 'Quarter end', 'Filing date', 'Type']]
         ticker_edgar.to_csv(base_data_path + interim_data_path + 'edgar/' + ticker + '.csv')
 
 
@@ -179,7 +169,7 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
     yahoo_info = pd.read_csv(base_data_path + interim_data_path + 'yahoo_info_interim_data.csv', index_col=0)
     interim_data_row = {}
 
-    for ticker in tickers['Ticker'].values:
+    for ticker in tickers['ticker'].values:
         if start_from > ticker: continue
         if ticker > end_till: continue
         blacklist = []
@@ -193,7 +183,7 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
         # Yayoo_quotes
         ticker_quotes = pd.read_csv(base_data_path + interim_data_path + 'yahoo_quotes/' + ticker + '.csv', index_col=0)
         ticker_quotes.dropna(axis=0, inplace=True)
-        ticker_stockpup = stockpup[stockpup['Ticker'] == ticker]
+        ticker_stockpup = stockpup[stockpup['ticker'] == ticker]
         ticker_stockpup = ticker_stockpup.sort_values(by='Quarter end')
 
         for _, row in ticker_stockpup.iterrows():
@@ -207,50 +197,50 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
                 print('Filing date does\'t exist:' + ',' + row['Quarter end'])
                 continue
             # Get ticker_quotes for quarter start till filing date
-            mask = (ticker_quotes['Date'] >= row['Quarter start']) & (ticker_quotes['Date'] <= filing_date)
+            mask = (ticker_quotes['date'] >= row['Quarter start']) & (ticker_quotes['date'] <= filing_date)
             quarter_quotes = ticker_quotes[mask]
             if quarter_quotes.empty:
                 print('No quotes for period: ', ',' + row['Quarter start'], filing_date)
                 continue
             # Make interim data row
             interim_data_row['Filing date'] = filing_date
-            interim_data_row['Open'] = quarter_quotes.iloc[0]['Open']
-            interim_data_row['Close'] = quarter_quotes.iloc[-1]['Close']
+            interim_data_row['open'] = quarter_quotes.iloc[0]['open']
+            interim_data_row['close'] = quarter_quotes.iloc[-1]['close']
             interim_data_row['O_ma252'] = quarter_quotes.iloc[0]['ma252']
             interim_data_row['C_ma252'] = quarter_quotes.iloc[-1]['ma252']
-            interim_data_row['Cl_Min'] = quarter_quotes['Low'].min()
-            interim_data_row['Cl_Max'] = quarter_quotes['High'].max()
-            interim_data_row['Cl_Mean'] = quarter_quotes['Close'].mean()
-            interim_data_row['Cl_Std'] = quarter_quotes['Close'].std()
+            interim_data_row['Cl_Min'] = quarter_quotes['low'].min()
+            interim_data_row['Cl_Max'] = quarter_quotes['high'].max()
+            interim_data_row['Cl_Mean'] = quarter_quotes['close'].mean()
+            interim_data_row['Cl_Std'] = quarter_quotes['close'].std()
 
             # Add indexes
-            for index in indexes['Ticker'].values:
+            for index in indexes['ticker'].values:
                 index_quotes = pd.read_csv(base_data_path + interim_data_path + 'yahoo_quotes/' + index + '.csv', index_col=0)
                 index_quotes.dropna(axis=0, inplace=True)
                 # Get index_quotes for quarter start till filing date
-                mask = (index_quotes['Date'] >= row['Quarter start']) & (index_quotes['Date'] <= filing_date)
+                mask = (index_quotes['date'] >= row['Quarter start']) & (index_quotes['date'] <= filing_date)
                 quarter_index_quotes = index_quotes[mask]
                 if quarter_index_quotes.empty:
                     print('No index quotes for period: ', ',' + row['Quarter start'], filing_date)
                     continue
                 # Make interim data row
-                interim_data_row[index + ' ' + 'Open'] = quarter_index_quotes.iloc[0]['Open']
-                interim_data_row[index + ' ' + 'Close'] = quarter_index_quotes.iloc[-1]['Close']
+                interim_data_row[index + ' ' + 'open'] = quarter_index_quotes.iloc[0]['open']
+                interim_data_row[index + ' ' + 'close'] = quarter_index_quotes.iloc[-1]['close']
                 interim_data_row[index + ' ' + 'O_ma252'] = quarter_index_quotes.iloc[0]['ma252']
                 interim_data_row[index + ' ' + 'C_ma252'] = quarter_index_quotes.iloc[-1]['ma252']
-                interim_data_row[index + ' ' + 'Cl_Min'] = quarter_index_quotes['Low'].min()
-                interim_data_row[index + ' ' + 'Cl_Max'] = quarter_index_quotes['High'].max()
-                interim_data_row[index + ' ' + 'Cl_Mean'] = quarter_index_quotes['Close'].mean()
-                interim_data_row[index + ' ' + 'Cl_Std'] = quarter_index_quotes['Close'].std()
+                interim_data_row[index + ' ' + 'Cl_Min'] = quarter_index_quotes['low'].min()
+                interim_data_row[index + ' ' + 'Cl_Max'] = quarter_index_quotes['high'].max()
+                interim_data_row[index + ' ' + 'Cl_Mean'] = quarter_index_quotes['close'].mean()
+                interim_data_row[index + ' ' + 'Cl_Std'] = quarter_index_quotes['close'].std()
 
             # Yahoo_info
-            interim_data_row['Sector'] = yahoo_info.loc[yahoo_info['Ticker'] == ticker, 'Sector label'].values[0]
-            interim_data_row['Industry'] = yahoo_info.loc[yahoo_info['Ticker'] == ticker, 'Industry label'].values[0]
+            interim_data_row['Sector'] = yahoo_info.loc[yahoo_info['ticker'] == ticker, 'Sector label'].values[0]
+            interim_data_row['Industry'] = yahoo_info.loc[yahoo_info['ticker'] == ticker, 'Industry label'].values[0]
             ticker_interim_data = ticker_interim_data.append({**row.to_dict(), **interim_data_row}, ignore_index=True)
 
         # CLEAN-UP
         # Remove and reorder columns
-        col_info = ['Ticker', 'Filing date', 'Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
+        col_info = ['ticker', 'Filing date', 'Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
         # Balance sheet statement
         col_balance = ['Assets', 'Current Assets', 'Liabilities', 'Current Liabilities', 'Shareholders equity',
                        'Non-controlling interest', 'Preferred equity', 'Goodwill & intangibles', 'Long-term debt']
@@ -264,16 +254,16 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
         col_ratio = ['ROE', 'ROA', 'Book value of equity per share', 'P/B ratio', 'P/E ratio',
                      'Dividend payout ratio', 'Long-term debt to equity ratio',
                      'Equity to assets ratio', 'Net margin', 'Asset turnover', 'Free cash flow per share', 'Current ratio']
-        col_quotes = ['Open', 'Close', 'Cl_Max', 'Cl_Mean', 'Cl_Min', 'Cl_Std', 'O_ma252', 'C_ma252',
-                      '^DJI C_ma252', '^DJI Cl_Max', '^DJI Cl_Mean', '^DJI Cl_Min', '^DJI Cl_Std', '^DJI Close', '^DJI O_ma252', '^DJI Open',
-                      '^FVX C_ma252', '^FVX Cl_Max', '^FVX Cl_Mean', '^FVX Cl_Min', '^FVX Cl_Std', '^FVX Close', '^FVX O_ma252', '^FVX Open',
-                      '^GSPC C_ma252', '^GSPC Cl_Max', '^GSPC Cl_Mean', '^GSPC Cl_Min', '^GSPC Cl_Std', '^GSPC Close', '^GSPC O_ma252', '^GSPC Open',
-                      '^IRX C_ma252', '^IRX Cl_Max', '^IRX Cl_Mean', '^IRX Cl_Min', '^IRX Cl_Std', '^IRX Close', '^IRX O_ma252', '^IRX Open',
-                      '^IXIC C_ma252', '^IXIC Cl_Max', '^IXIC Cl_Mean', '^IXIC Cl_Min', '^IXIC Cl_Std', '^IXIC Close', '^IXIC O_ma252', '^IXIC Open',
-                      '^N225 C_ma252', '^N225 Cl_Max', '^N225 Cl_Mean', '^N225 Cl_Min', '^N225 Cl_Std', '^N225 Close', '^N225 O_ma252', '^N225 Open',
-                      '^TNX C_ma252', '^TNX Cl_Max', '^TNX Cl_Mean', '^TNX Cl_Min', '^TNX Cl_Std', '^TNX Close', '^TNX O_ma252', '^TNX Open',
-                      '^TYX C_ma252', '^TYX Cl_Max', '^TYX Cl_Mean', '^TYX Cl_Min', '^TYX Cl_Std', '^TYX Close', '^TYX O_ma252', '^TYX Open',
-                      '^VIX C_ma252', '^VIX Cl_Max', '^VIX Cl_Mean', '^VIX Cl_Min', '^VIX Cl_Std', '^VIX Close', '^VIX O_ma252', '^VIX Open']
+        col_quotes = ['open', 'close', 'Cl_Max', 'Cl_Mean', 'Cl_Min', 'Cl_Std', 'O_ma252', 'C_ma252',
+                      '^DJI C_ma252', '^DJI Cl_Max', '^DJI Cl_Mean', '^DJI Cl_Min', '^DJI Cl_Std', '^DJI close', '^DJI O_ma252', '^DJI open',
+                      '^FVX C_ma252', '^FVX Cl_Max', '^FVX Cl_Mean', '^FVX Cl_Min', '^FVX Cl_Std', '^FVX close', '^FVX O_ma252', '^FVX open',
+                      '^GSPC C_ma252', '^GSPC Cl_Max', '^GSPC Cl_Mean', '^GSPC Cl_Min', '^GSPC Cl_Std', '^GSPC close', '^GSPC O_ma252', '^GSPC open',
+                      '^IRX C_ma252', '^IRX Cl_Max', '^IRX Cl_Mean', '^IRX Cl_Min', '^IRX Cl_Std', '^IRX close', '^IRX O_ma252', '^IRX open',
+                      '^IXIC C_ma252', '^IXIC Cl_Max', '^IXIC Cl_Mean', '^IXIC Cl_Min', '^IXIC Cl_Std', '^IXIC close', '^IXIC O_ma252', '^IXIC open',
+                      '^N225 C_ma252', '^N225 Cl_Max', '^N225 Cl_Mean', '^N225 Cl_Min', '^N225 Cl_Std', '^N225 close', '^N225 O_ma252', '^N225 open',
+                      '^TNX C_ma252', '^TNX Cl_Max', '^TNX Cl_Mean', '^TNX Cl_Min', '^TNX Cl_Std', '^TNX close', '^TNX O_ma252', '^TNX open',
+                      '^TYX C_ma252', '^TYX Cl_Max', '^TYX Cl_Mean', '^TYX Cl_Min', '^TYX Cl_Std', '^TYX close', '^TYX O_ma252', '^TYX open',
+                      '^VIX C_ma252', '^VIX Cl_Max', '^VIX Cl_Mean', '^VIX Cl_Min', '^VIX Cl_Std', '^VIX close', '^VIX O_ma252', '^VIX open']
         # Removed columns
         # 'Cumulative dividends per share', #  Dividents from 1st reporting quarter until now. Irrelevant
         # 'Price', 'Price high', 'Price low', # Will get prices from yahoo_quotes
@@ -306,9 +296,9 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
 if __name__ == '__main__':
     # make_tickers()
     # make_inflation()
-    # make_interim_yahoo_quotes()
+    # make_stockpup()
+    make_yahoo_quotes()
     # make_interim_yahoo_info()
-    make_stockpup()
     # make_interim_edgar()
     # make_interim_data(start_from='A', end_till='E', write_log=False)
     # make_interim_data(start_from='E',end_till='I', write_log=False)
