@@ -24,67 +24,79 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 12)
 pd.set_option('display.width', 1500)
 
-base_data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/'
-raw_stockpup_path = 'raw/stockpup/'
-raw_yahoo_quotes_path = 'raw/yahoo_quotes/'
-raw_yahoo_info_path = 'raw/yahoo_info/'
-raw_edgar_path = 'raw/edgar/'
-raw_economic_indicators = 'raw/economic_indicators/'
+# data paths
+data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/'
+raw_data_path = data_path + 'raw/'
+stockpup_path = raw_data_path + 'stockpup/'
+yahoo_quotes_path = raw_data_path + 'yahoo_quotes/'
+economic_indicators_path = raw_data_path + 'economic_indicators/'
 
-interim_data_path = 'interim/'
+yahoo_info_path = raw_data_path + 'yahoo_info/'
+edgar_data_path = raw_data_path + 'edgar/'
+interim_data_path = data_path + 'interim/'
+
+# Printing options
+date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())  # Session datetime
+print_dt = '{}: '.format(date_time)
+print_arrow = '{}: ====================>'.format(date_time)
+print_ln = '\n' + '-' * 120 + '\n'
+print_block = '\n' + '#' * 120 + '\n'
 
 
 def make_tickers():
-    tickers = pd.read_csv(base_data_path + 'raw/tickers.csv', index_col=0)
+    tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
     indexes = pd.DataFrame(['^GSPC', '^DJI', '^IXIC', '^N225', '^VIX', '^TNX', '^TYX', '^FVX', '^IRX'], columns=['Ticker'])
     # Remove blacklisted tickers
-    tickers = tickers[tickers['Blacklist YQ'] != True]
-    tickers = tickers[tickers['Blacklist YI'] != True]
-    tickers = tickers.drop(['Blacklist YQ', 'Blacklist YI'], axis=1)
-    tickers.to_csv(base_data_path + interim_data_path + 'tickers.csv')
-    indexes.to_csv(base_data_path + interim_data_path + 'indexes.csv')
+    tickers = tickers.loc[tickers['bl'] != True, 'ticker']
+    tickers = tickers.reset_index()
+    tickers.to_csv(interim_data_path + 'tickers.csv')
+    indexes.to_csv(interim_data_path + 'indexes.csv')
 
 
-def make_interim_inflation():
-    inflation = pd.read_csv(base_data_path + raw_economic_indicators + 'monthly_inflation_rates.csv')
-    inflation['CPI_inverse'] = (1 + inflation['Value'].iloc[::-1].values / 100) ** (1 / 12)
+def make_inflation():
+    inflation = pd.read_csv(economic_indicators_path + 'monthly_inflation_rates.csv')
+    inflation['CPI_inverse'] = (1 + inflation['Value'].iloc[::-1].values / 100) ** (1 / 12)  # yearly to monthly
     inflation['CPI_multiplier'] = inflation['CPI_inverse'].cumprod().iloc[::-1].values
     inflation['20190404_multiplier'] = inflation['CPI_multiplier']  # .iloc[::-1].values
-    inflation['Date'] = pd.to_datetime(inflation['TIME'], format='%Y-%m')
-    inflation = inflation[['Date', 'Value', '20190404_multiplier']]
-    inflation.to_csv(base_data_path + interim_data_path + 'economic_indicators/monthly_inflation_rates.csv')
+    inflation['date'] = pd.to_datetime(inflation['TIME'], format='%Y-%m')
+    inflation = inflation[['TIME', 'Value', '20190404_multiplier']]
+    df = pd.DataFrame()
+    df[['date', 'value', '20190404_multiplier']] = inflation[['TIME', 'Value', '20190404_multiplier']]
+    print(df)
+    # Todo: Check if formula is correct, what happens with new data?
+    df.to_csv(interim_data_path + 'economic_indicators/monthly_inflation_rates.csv')
 
 
-def make_interim_stockpup():
-    stockpup = pd.read_csv(base_data_path + raw_stockpup_path + 'stockpup_raw_data.csv', index_col=0)
+def make_stockpup():
+    """
+
+    - Make dates
+    - Add features
+        - Month, Quarter
+        - INC_earnings	- INC_earnings_available_for_common_stockholders
+
+
+    :return:
+    """
+    stockpup = pd.read_csv(stockpup_path + 'stockpup.csv', index_col=0)
+    print(stockpup.shape)
     # Make dates
-    stockpup['Quarter end'] = pd.to_datetime(stockpup['Quarter end'], format='%Y-%m-%d')
-    stockpup['Quarter start'] = stockpup['Quarter end'] - pd.DateOffset(months=3) + pd.offsets.MonthBegin(1)
+    stockpup['quarter_end'] = pd.to_datetime(stockpup['quarter_end'], format='%Y-%m-%d')
+    stockpup['quarter_start'] = stockpup['quarter_end'] - pd.DateOffset(months=3) + pd.offsets.MonthBegin(1)
+    # Reorder columns
+    new_order = [0, -1] + [i + 1 for i in range(len(stockpup.columns) - 2)]  # put quarter_end on 2 place
+    stockpup = stockpup[stockpup.columns[new_order]]
 
-    # CLEAN-UP
-    # Remove and reorder columns
-    col_info = ['Ticker', 'Quarter start', 'Quarter end', 'Shares', 'Shares split adjusted', 'Split factor']
-    # Balance sheet statement
-    col_balance = ['Assets', 'Current Assets', 'Liabilities', 'Current Liabilities', 'Shareholders equity',
-                   'Non-controlling interest', 'Preferred equity', 'Goodwill & intangibles', 'Long-term debt']
-    # Income statement
-    col_income = ['Revenue', 'Earnings', 'Earnings available for common stockholders',
-                  'EPS basic', 'EPS diluted', 'Dividend per share']
-    # Cashflow statement
-    col_cf = ['Cash from operating activities', 'Cash from investing activities', 'Cash from financing activities',
-              'Cash change during period', 'Cash at end of period', 'Capital expenditures']
-    # Ratio's
-    col_ratio = ['ROE', 'ROA', 'Book value of equity per share', 'P/B ratio', 'P/E ratio',
-                 'Dividend payout ratio', 'Long-term debt to equity ratio',
-                 'Equity to assets ratio', 'Net margin', 'Asset turnover', 'Free cash flow per share', 'Current ratio']
-    # Removed columns
-    # 'Cumulative dividends per share', #  Dividents from 1st reporting quarter until now. Irrelevant
-    # 'Price', 'Price high', 'Price low', # Will get prices from yahoo_quotes
+    # Add/Remove features
+    stockpup['m_start'] = stockpup['quarter_start'].dt.month
+    stockpup['m_end'] = stockpup['quarter_end'].dt.month
+    stockpup['q_start'] = stockpup['quarter_start'].dt.quarter  # # Don't use quarter_end. Ex: PAYX quarter_end 1996-02-29 is 1Q
+    stockpup['INC_earnings_earnings_available'] = stockpup['INC_earnings'] - stockpup['INC_earnings_available_for_common_stockholders']
 
-    cols = col_info + col_balance + col_income + col_cf + col_ratio
-    stockpup = stockpup[cols]
-    print(stockpup.sample(10))
-    stockpup.to_csv(base_data_path + interim_data_path + 'stockpup_interim_data.csv')
+    stockpup = stockpup.drop(['INC_earnings_available_for_common_stockholders', 'RAT_cumulative_dividends_per_share'], axis=1)
+
+
+    stockpup.to_csv(interim_data_path + 'stockpup.csv')
 
 
 def make_interim_yahoo_quotes():
@@ -150,7 +162,7 @@ def make_interim_edgar():
         try:
             ticker_edgar = pd.read_csv(base_data_path + raw_edgar_path + ticker + '.csv', index_col=0)
         except FileNotFoundError:
-            print('File doesn\'t exists:', ticker) # Todo: possible filing on a day when markets are closed
+            print('File doesn\'t exists:', ticker)  # Todo: possible filing on a day when markets are closed
             continue
         ticker_edgar['Filing date'] = pd.to_datetime(ticker_edgar['Filing date'].astype(str), format='%Y%m%d')
         ticker_edgar['Quarter end'] = pd.to_datetime(ticker_edgar['Quarter end'].astype(str), format='%Y%m%d')
@@ -236,10 +248,9 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
             interim_data_row['Industry'] = yahoo_info.loc[yahoo_info['Ticker'] == ticker, 'Industry label'].values[0]
             ticker_interim_data = ticker_interim_data.append({**row.to_dict(), **interim_data_row}, ignore_index=True)
 
-
         # CLEAN-UP
         # Remove and reorder columns
-        col_info = ['Ticker', 'Filing date','Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
+        col_info = ['Ticker', 'Filing date', 'Quarter start', 'Quarter end', 'Sector', 'Industry', 'Shares', 'Shares split adjusted', 'Split factor']
         # Balance sheet statement
         col_balance = ['Assets', 'Current Assets', 'Liabilities', 'Current Liabilities', 'Shareholders equity',
                        'Non-controlling interest', 'Preferred equity', 'Goodwill & intangibles', 'Long-term debt']
@@ -294,10 +305,10 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', write_log=False):
 
 if __name__ == '__main__':
     # make_tickers()
-    # make_interim_inflation()
+    # make_inflation()
     # make_interim_yahoo_quotes()
     # make_interim_yahoo_info()
-    # make_interim_stockpup()
+    make_stockpup()
     # make_interim_edgar()
     # make_interim_data(start_from='A', end_till='E', write_log=False)
     # make_interim_data(start_from='E',end_till='I', write_log=False)
