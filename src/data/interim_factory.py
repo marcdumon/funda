@@ -137,12 +137,12 @@ def make_yahoo_quotes():
         ticker_quotes.to_csv(interim_data_path + 'yahoo_quotes/' + ticker + '.csv')
 
 
-def make_interim_yahoo_info():
-    yahoo_info = pd.read_csv(base_data_path + raw_yahoo_info_path + 'yahoo_info_raw_data.csv', index_col=0)
+def make_yahoo_info():
+    yahoo_info = pd.read_csv(yahoo_info_path + 'yahoo_info.csv', index_col=0)
     le = LabelEncoder()
-    yahoo_info['Sector label'] = le.fit_transform(yahoo_info['Sector'])
-    yahoo_info['Industry label'] = le.fit_transform(yahoo_info['Industry'])
-    yahoo_info.to_csv(base_data_path + interim_data_path + 'yahoo_info_interim_data.csv')
+    yahoo_info['sector'] = le.fit_transform(yahoo_info['sector'])
+    yahoo_info['industry label'] = le.fit_transform(yahoo_info['industry'])
+    yahoo_info.to_csv(interim_data_path+ 'yahoo_info.csv')
 
 
 def make_interim_edgar():
@@ -297,8 +297,8 @@ if __name__ == '__main__':
     # make_tickers()
     # make_inflation()
     # make_stockpup()
-    make_yahoo_quotes()
-    # make_interim_yahoo_info()
+    # make_yahoo_quotes()
+    make_yahoo_info()
     # make_interim_edgar()
     # make_interim_data(start_from='A', end_till='E', write_log=False)
     # make_interim_data(start_from='E',end_till='I', write_log=False)
