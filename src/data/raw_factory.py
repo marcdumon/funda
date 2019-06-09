@@ -106,7 +106,7 @@ def make_stockpup_data(start_ticker: str = 'A', end_ticker='ZZZZ') -> pd.DataFra
                   'cumulative_dividends_per_share', 'dividend_payout_ratio', 'long-term_debt_to_equity_ratio',
                   'equity_to_assets_ratio', 'net_margin', 'asset_turnover', 'free_cash_flow_per_share', 'current_ratio']
 
-    columns = id_cols + info_cols + income_cols + balance_cols + cashflow_cols + ratio_cols  # Remove  'price', 'price_high', 'price_low'
+    columns = id_cols + info_cols + income_cols + balance_cols + cashflow_cols + ratio_cols  # Todo: better in interim_factory Removed  'price', 'price_high', 'price_low'
     stockpup_df = stockpup_df[columns]
 
     # Todo: Save space by using CamelCase column names iso using '_'
@@ -297,7 +297,7 @@ def make_yahoo_info_data(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', head
 def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', headless: bool = True, redownload: bool = False):
     # Todo: Ex IBM: 424B5 filings return blank line, Ex EQ: SC 13G/A filinges return blank line
     # Todo: Ex BAC: Has huge amounts filings and breaks with >2000 filings => only &dateb= iso
-    tickers_downloaded = mos.get_filenames(edgar_data_path, ext='csv')
+    tickers_downloaded = mos.get_filenames(edgar_data_path, ext='csv') # Todo: put this in ticker loop to avoid start end ticker ????
     tickers_downloaded = [t.split('.csv')[0] for t in tickers_downloaded]
     driver = _get_selenium_driver(headless=headless)
     tickers = pd.read_csv(raw_data_path + 'tickers.csv', index_col=0)
@@ -348,7 +348,7 @@ def make_edgar_filing_list(start_ticker: str = 'A', end_ticker: str = 'ZZZZ', he
                     try:
                         row[var] = driver.find_element_by_xpath(xpath).text
                     except NoSuchElementException as e:
-                        pass
+                        pass # Todo: does this creates empty rows ????
                 ticker_filing_df = ticker_filing_df.append(row, ignore_index=True)
                 ticker_filing_df['ticker'] = ticker
 
@@ -566,9 +566,9 @@ if __name__ == '__main__':
     # make_tickers()
     # make_stockpup_data()
     # data_clean_stockpup()
-    make_yahoo_quote_data(redownload=False)
+    make_yahoo_quote_data(start_ticker,end_ticker,redownload=True)
     # make_yahoo_info_data(headless=True)
-    # make_edgar_data('ABM', 'E', redownload=True, headless=False)
+    # make_edgar_filing_lists(start_ticker, end_ticker, redownload=False, headless=True)
     # x()
-    # make_edgar_filing_list(start_ticker, end_ticker, headless=True)
+
     pass
