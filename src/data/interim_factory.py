@@ -143,7 +143,7 @@ def make_yahoo_info():
     yahoo_info = pd.read_csv(yahoo_info_path + 'yahoo_info.csv', index_col=0)
     le = LabelEncoder()
     yahoo_info['sector'] = le.fit_transform(yahoo_info['sector'])
-    yahoo_info['industry label'] = le.fit_transform(yahoo_info['industry'])
+    yahoo_info['industry'] = le.fit_transform(yahoo_info['industry'])
     yahoo_info.to_csv(interim_data_path + 'yahoo_info.csv')
 
 
@@ -187,7 +187,7 @@ def make_edgar_filing_lists():
 
 
 def make_interim_data(start_from='A', end_till='ZZZZZ', redownload=False, write_log=False):
-    # Todo: lots of errors
+    # Todo: lots of filing_date does't exit errors (UNM 2010-12-31, huge amounts on 31/12 !!!!!)
     if write_log: sys.stdout = open(interim_data_path + 'make_interin_data_log.csv', 'w')
     tickers = pd.read_csv(interim_data_path + 'tickers.csv', index_col=0)
     indexes = pd.read_csv(interim_data_path + 'indexes.csv', index_col=0)
@@ -214,15 +214,13 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', redownload=False, write_
         ticker_stockpup = ticker_stockpup.sort_values(by='quarter_end')
 
         for _, row in ticker_stockpup.iterrows():
-            # Look-up filing_date for quarter
-            mask = (ticker_edgar['quarter_end'] == row['quarter_end']) & ((ticker_edgar['type'] == '10-K') | (ticker_edgar['type'] == '10-Q'))
-
-
             try:
+                # Look-up filing_date for quarter
+                mask = (ticker_edgar['quarter_end'] == row['quarter_end']) & ((ticker_edgar['type'] == '10-K') | (ticker_edgar['type'] == '10-Q'))
                 filing_date = ticker_edgar.loc[mask, 'filing_date'].values[0]
                 print(ticker, filing_date)
             except IndexError as e:
-                print('Error: filing_date does\'t exist:' + ',' + row['quarter_end'])  # Todo: Ex: ADT, stockpup data before edgar
+                print('Error: filing_date does\'t exist:' + ',' + row['quarter_end'])  # Todo: Ex: ADT, stockpup date before edgar
                 continue
             # Get ticker_quotes for quarter start till filing_date
             mask = (ticker_quotes['date'] >= row['quarter_start']) & (ticker_quotes['date'] <= filing_date)
@@ -232,14 +230,14 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', redownload=False, write_
                 continue
             # Make interim data row
             interim_data_row['filing_date'] = filing_date
-            interim_data_row['open'] = quarter_quotes.iloc[0]['open']
-            interim_data_row['close'] = quarter_quotes.iloc[-1]['close']
-            interim_data_row['O_ma252'] = quarter_quotes.iloc[0]['ma252']
-            interim_data_row['C_ma252'] = quarter_quotes.iloc[-1]['ma252']
-            interim_data_row['Cl_Min'] = quarter_quotes['low'].min()
-            interim_data_row['Cl_Max'] = quarter_quotes['high'].max()
-            interim_data_row['Cl_Mean'] = quarter_quotes['close'].mean()
-            interim_data_row['Cl_Std'] = quarter_quotes['close'].std()
+            interim_data_row['PR_open'] = quarter_quotes.iloc[0]['open']
+            interim_data_row['PR_close'] = quarter_quotes.iloc[-1]['close']
+            interim_data_row['PR_o_ma252'] = quarter_quotes.iloc[0]['ma252']
+            interim_data_row['PR_c_ma252'] = quarter_quotes.iloc[-1]['ma252']
+            interim_data_row['PR_min'] = quarter_quotes['low'].min()
+            interim_data_row['PR_max'] = quarter_quotes['high'].max()
+            interim_data_row['PR_mean'] = quarter_quotes['close'].mean()
+            interim_data_row['PR_std'] = quarter_quotes['close'].std()
 
             # Add indexes
             for index in indexes['ticker'].values:
@@ -252,14 +250,14 @@ def make_interim_data(start_from='A', end_till='ZZZZZ', redownload=False, write_
                     print('Error: No index quotes for period: ', ',' + row['quarter_start'], filing_date)
                     continue
                 # Make interim data row
-                interim_data_row[index + ' ' + 'open'] = quarter_index_quotes.iloc[0]['open']
-                interim_data_row[index + ' ' + 'close'] = quarter_index_quotes.iloc[-1]['close']
-                interim_data_row[index + ' ' + 'O_ma252'] = quarter_index_quotes.iloc[0]['ma252']
-                interim_data_row[index + ' ' + 'C_ma252'] = quarter_index_quotes.iloc[-1]['ma252']
-                interim_data_row[index + ' ' + 'Cl_Min'] = quarter_index_quotes['low'].min()
-                interim_data_row[index + ' ' + 'Cl_Max'] = quarter_index_quotes['high'].max()
-                interim_data_row[index + ' ' + 'Cl_Mean'] = quarter_index_quotes['close'].mean()
-                interim_data_row[index + ' ' + 'Cl_Std'] = quarter_index_quotes['close'].std()
+                interim_data_row['PR_'+index + '_open'] = quarter_index_quotes.iloc[0]['open']
+                interim_data_row['PR_'+index + '_close'] = quarter_index_quotes.iloc[-1]['close']
+                interim_data_row['PR_'+index + '_o_ma252'] = quarter_index_quotes.iloc[0]['ma252']
+                interim_data_row['PR_'+index + '_c_ma252'] = quarter_index_quotes.iloc[-1]['ma252']
+                interim_data_row['PR_'+index + '_min'] = quarter_index_quotes['low'].min()
+                interim_data_row['PR_'+index + '_max'] = quarter_index_quotes['high'].max()
+                interim_data_row['PR_'+index + '_mean'] = quarter_index_quotes['close'].mean()
+                interim_data_row['PR_'+index + '_std'] = quarter_index_quotes['close'].std()
 
             # Yahoo_info
             interim_data_row['sector'] = yahoo_info.loc[yahoo_info['ticker'] == ticker, 'sector'].values[0]
@@ -288,9 +286,5 @@ if __name__ == '__main__':
     # make_yahoo_info()
     # make_edgar_filing_lists()
     make_interim_data(start_from=start_ticker, end_till=end_ticker, write_log=False)
-    # make_interim_data(start_from='E',end_till='I', write_log=False)
-    # make_interim_data(start_from='I',end_till='M', write_log=False)
-    # make_interim_data(start_from='M', end_till='Q', write_log=False)
-    # make_interim_data(start_from='Q', end_till='U', write_log=False)
-    # make_interim_data(start_from='U', end_till='Z', write_log=False)
+
     pass
