@@ -98,13 +98,13 @@ def make_stockpup_data(start_ticker: str = 'A', end_ticker='ZZZZ') -> pd.DataFra
     info_cols = ['shares', 'shares_split_adjusted', 'split_factor']
     balance_cols = ['assets', 'current_assets', 'liabilities', 'current_liabilities', 'shareholders_equity',
                     'non-controlling_interest', 'preferred_equity', 'goodwill_&_intangibles', 'long-term_debt']
-    income_cols = ['revenue', 'earnings', 'earnings_available_for_common_stockholders', 'eps_basic', 'eps_diluted',
-                   'dividend_per_share']
+    income_cols = ['revenue', 'earnings', 'earnings_available_for_common_stockholders', ]
     cashflow_cols = ['cash_from_operating_activities', 'cash_from_investing_activities',
                      'cash_from_financing_activities', 'cash_change_during_period', 'cash_at_end_of_period', 'capital_expenditures']
     ratio_cols = ['roe', 'roa', 'book_value_of_equity_per_share', 'p/b_ratio', 'p/e_ratio',
                   'cumulative_dividends_per_share', 'dividend_payout_ratio', 'long-term_debt_to_equity_ratio',
-                  'equity_to_assets_ratio', 'net_margin', 'asset_turnover', 'free_cash_flow_per_share', 'current_ratio']
+                  'equity_to_assets_ratio', 'net_margin', 'asset_turnover', 'free_cash_flow_per_share', 'current_ratio', 'eps_basic', 'eps_diluted',
+                   'dividend_per_share']
 
     columns = id_cols + info_cols + income_cols + balance_cols + cashflow_cols + ratio_cols  # Todo: better in interim_factory Removed  'price', 'price_high', 'price_low'
     stockpup_df = stockpup_df[columns]
@@ -564,9 +564,9 @@ if __name__ == '__main__':
     start_ticker = input('Start ticker = ')
     end_ticker = input('End ticker = ')
     # make_tickers()
-    # make_stockpup_data()
-    # data_clean_stockpup()
-    make_yahoo_quote_data(start_ticker,end_ticker,redownload=True)
+    make_stockpup_data()
+    data_clean_stockpup()
+    # make_yahoo_quote_data(start_ticker,end_ticker,redownload=True)
     # make_yahoo_info_data(headless=True)
     # make_edgar_filing_lists(start_ticker, end_ticker, redownload=False, headless=True)
     # x()
