@@ -287,6 +287,6 @@ if __name__ == '__main__':
     # make_yahoo_quotes()
     # make_yahoo_info()
     # make_edgar_filing_lists()
-    make_interim_data(start_from=start_ticker, end_till=end_ticker, write_log=False, redownload=True)
+    make_interim_data(start_from=start_ticker, end_till=end_ticker, write_log=False, redownload=False)
 
     pass
