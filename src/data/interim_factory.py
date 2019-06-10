@@ -12,17 +12,19 @@ from typing import Any, Union
 import talib
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
-from pandas.io.parsers import TextFileReader
+
+# from pandas import DataFrame
+# from pandas.io.parsers import TextFileReader
 from my_tools.my_toolbox import MyOsTools as mos
 # from src.my_tools.my_toolbox import MyOsTools as mos
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from sklearn.preprocessing import RobustScaler, MinMaxScaler, LabelEncoder
 
 # Set pandas display options
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 12)
 pd.set_option('display.width', 1500)
+
 
 # data paths
 data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/'
@@ -86,7 +88,7 @@ def make_stockpup():
     print(stockpup.shape)
     # Make dates
     stockpup['quarter_end'] = pd.to_datetime(stockpup['quarter_end'], format='%Y-%m-%d')
-    stockpup['quarter_start'] = stockpup['quarter_end'] - pd.dateOffset(months=3) + pd.offsets.MonthBegin(1)
+    stockpup['quarter_start'] = stockpup['quarter_end'] - pd.offsets.DateOffset(months=3) + pd.offsets.MonthBegin(1)
     # Reorder columns
     new_order = [0, -1] + [i + 1 for i in range(len(stockpup.columns) - 2)]  # put quarter_end on 2 place
     stockpup = stockpup[stockpup.columns[new_order]]
@@ -285,6 +287,6 @@ if __name__ == '__main__':
     # make_yahoo_quotes()
     # make_yahoo_info()
     # make_edgar_filing_lists()
-    make_interim_data(start_from=start_ticker, end_till=end_ticker, write_log=False)
+    make_interim_data(start_from=start_ticker, end_till=end_ticker, write_log=False, redownload=True)
 
     pass
