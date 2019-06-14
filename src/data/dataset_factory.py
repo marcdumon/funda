@@ -158,9 +158,18 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     nan_mask.columns = ['MASK_{}'.format(c) for c in nan_mask.columns]
     all_df = pd.concat([all_df, nan_mask.astype(int)], axis=1)
 
-    tickers = pd.DataFrame({'ticker': all_df['ticker'].unique()})
+    # Add final label
+    gain = all_df['X_label_gain'] > 1
+    loss = all_df['X_label_loss'] > 1
+    all_df['label'] = gain * 1 - loss
+
+    # Remove future features
+    all_df.drop(['X_return_4', 'X_gain_lbl_4', 'X_loss_lbl_4', 'X_return_3', 'X_gain_lbl_3',
+                 'X_loss_lbl_3', 'X_return_2', 'X_gain_lbl_2', 'X_loss_lbl_2', 'X_return_1', 'X_gain_lbl_1', 'X_loss_lbl_1',
+                 'X_label_gain', 'X_label_loss'], axis=1, inplace=True)
 
     # Takeout companies
+    tickers = pd.DataFrame({'ticker': all_df['ticker'].unique()})
     valid_test_tickers = tickers.sample(n_valid_test_tickers)
     valid_tickers = valid_test_tickers.head(int(n_valid_test_tickers / 2))
     test_tickers = valid_test_tickers.tail(int(n_valid_test_tickers / 2))
@@ -184,7 +193,7 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     print(all_df.shape, test_df.shape[0] + valid_df.shape[0] + train_df.shape[0])
 
     # Normalize
-    non_normalise_cols = ['ticker', 'filing_date', 'quarter_start', 'quarter_end', 'sector', 'industry', 'm_start', 'm_end', 'q_start']
+    non_normalise_cols = ['ticker', 'filing_date', 'quarter_start', 'quarter_end', 'sector', 'industry', 'm_start', 'm_end', 'q_start','label']
     non_normalise_cols = non_normalise_cols + [c for c in all_df.columns if c[:2] in ['X_', 'MA']]  # MASK_
     normalize_cols = [c for c in train_df.columns.values if c not in non_normalise_cols]
 
@@ -195,20 +204,23 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     valid_df[normalize_cols] = (valid_df[normalize_cols] - mean) / std
     test_df[normalize_cols] = (test_df[normalize_cols] - mean) / std
 
+    # Remove metadata
+    train_df = train_df.drop(['ticker', 'quarter_start', 'quarter_end', 'filing_date'], axis=1)
+    valid_df = valid_df.drop(['ticker', 'quarter_start', 'quarter_end', 'filing_date'], axis=1)
+    test_df = test_df.drop(['ticker', 'quarter_start', 'quarter_end', 'filing_date'], axis=1)
+
+    print(train_df.head())
     print(train_df.tail())
     train_df.to_csv(base_data_path + processed_data_path + 'train_dataset.csv')
     valid_df.to_csv(base_data_path + processed_data_path + 'valid_dataset.csv')
     test_df.to_csv(base_data_path + processed_data_path + 'test_dataset.csv')
 
-    train_df['X_label_gain'].hist()
-    plt.show()
-    train_df['X_label_loss'].hist()
-
-    plt.show()
-    valid_df['X_label_gain'].hist()
-    plt.show()
-    test_df['X_label_gain'].hist()
-    plt.show()
+    # train_df['label'].hist()
+    # plt.show()
+    # valid_df['label'].hist()
+    # plt.show()
+    # test_df['label'].hist()
+    # plt.show()
 
 
 if __name__ == '__main__':
