@@ -131,7 +131,7 @@ def scale_ticker_data():
             print('=====>', ticker)
 
 
-def combine_scaled_data(): # Todo: combine with scale_ticker_data
+def combine_scaled_data():  # Todo: combine with scale_ticker_data
     final_dataset = pd.DataFrame()
     tickers = pd.read_csv(base_data_path + 'interim/tickers.csv', index_col=0)
     for ticker in tickers['ticker'].values:
@@ -163,7 +163,7 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     # Add final label
     gain = all_df['X_label_gain'] > 1
     loss = all_df['X_label_loss'] > 1
-    all_df['label'] = gain * 1 - loss
+    all_df['label'] = gain * 1 - loss + 1 # +1 because Labels must be [0,1,2] and not [-1,0,1] for Pytorch CrossEntropyLoss
 
     # Remove future features
     all_df.drop([c for c in all_df.columns if c[:2] in ['X_']], axis=1, inplace=True)
@@ -173,7 +173,7 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     all_df.drop([c for c in all_df.columns if
                  c in ['MASK_BAL_liabilities', 'MASK_BAL_shareholders_equity', 'MASK_INC_earnings_earnings_available',
                        'MASK_INF_scale', 'MASK_RAT_book_value_of_equity_per_share', 'MASK_RAT_long-term_debt_to_equity_ratio'
-                       'MASK_RAT_current_ratio']], axis=1, inplace=True)
+                                                                                    'MASK_RAT_current_ratio']], axis=1, inplace=True)
 
     # Takeout companies
     tickers = pd.DataFrame({'ticker': all_df['ticker'].unique()})
@@ -235,5 +235,5 @@ if __name__ == '__main__':
     # make_labels()
     # scale_ticker_data()
     # combine_scaled_data()
-    # split_normalize_final_dataset()
+    split_normalize_final_dataset()
     pass

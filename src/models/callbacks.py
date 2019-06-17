@@ -7,7 +7,8 @@ import datetime
 import json
 
 import torch
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from torch import Tensor
 import torch.nn as nn
 
@@ -168,7 +169,7 @@ class TensorboardCB(Callback):
     def on_train_begin(self, logs):
         # Add graph
         dummy_input = logs['dummy_input']
-        self.writer.add_graph(model=logs['model'], input_to_model=dummy_input)
+        self.writer.add_graph(model=logs['model'], input_to_model=dummy_input, verbose=False)
         # Write params and model text
         params_str = '##Parameters:\n'
         for k, v in logs['params'].items():
