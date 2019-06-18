@@ -102,11 +102,11 @@ class Trainer:
             self.cbc.on_epoch_end(epoch=epoch, logs=logs)
 
             # print y_pred, y_true
-            if epoch % 100 == 0:
+            if epoch % 200 == 0:
                 print(y_true[:10])
                 _, y_pred = y_pred.max(1)
                 print(y_pred[:10])
-                print((y_true[:10]==y_pred[:10])*1)
+                print((y_true[:10] == y_pred[:10]) * 1)
 
         self.cbc.on_train_end(logs=logs)
         return self.model

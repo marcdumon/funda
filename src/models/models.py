@@ -55,7 +55,6 @@ class FeedForwardNN(nn.Module):
 
         self.lin_layers = nn.ModuleList([first_lin_layer] +
                                         [nn.Linear(lin_layer_sizes[i], lin_layer_sizes[i + 1]) for i in range(len(lin_layer_sizes) - 1)])
-        print(self.lin_layers)
 
         for lin_layer in self.lin_layers:
             nn.init.kaiming_normal_(lin_layer.weight.data)

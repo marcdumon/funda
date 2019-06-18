@@ -3,8 +3,7 @@
 
 ## Data
 ### Data collection
-The following data was collected:
-
+The following data were collected:
 
 - **Fundamental data**:  
 
@@ -68,12 +67,25 @@ Stockpup provides data for **760 companies** starting **from 1993-06-30 till 201
 
 
 ### Label creation
-
+The procedure used to create the labels was:
+  - calculate the percentage change for the closing price from the stock for up to 4 quarters.
+  - calculate the percentage change for the closing price from indices ^DJI, ^GSPC and ^IXIC for up to 4 quarters, and take the average for the 3 indices.
+  - calculate the excess gain and loss for each quarter. The formula is:
+    $$
+    \begin{cases}
+    \ \ \ 1 & \text{if $return_{stock} - \frac{\sum_{i=1}^3 return_{index_i}}{3}>(1 + expected\ return_{stock})^{(r/4)}-1$}\\
+    -1 & \text{if $return_{stock} - \frac{\sum_{i=1}^3 return_{index_i}}{3}<-(1 + expected\ return_{stock})^{(r/4)}-1$}\\
+    \ \ \  0 & \text{otherwise}
+    \end{cases}
+    $$
+  - the final label is 1 if two consecutive quarters with excess gain, -1 if two consecutive quarters with excess loss and 0 otherwise.
+The reason for choosing the excess returns iso the return of the stock was to select the best stocks, and the assumption is that this is  a stock that exceed the average return of indices when the market goes up or down. A good stock can also loose when the whole market is down, but less than average.
 
 ### Limitations
 
-- The final dataset contains only 516 companies, which is less than 10% of the amount of companies on US stock market.
 - Stockpup manually compiles its data and will likely contain more mistakes than the ones that were detected and corrected/removed.
-- The final dataset contains only companies that were operational at the time of the data collection and no delisted or bankrupt companies. The reason for this is that price and company information for delisted and bankrupt companies are not available on Yahoo.
 - The features provided by Stockpup are limited. Many interesting features like R&D, COGS, etc are not available.
+- The final dataset contains only 516 companies, which is less than 10% of the amount of companies on US stock market.
+- The final dataset contains only companies that were operational at the time of the data collection and no delisted or bankrupt companies. The reason for this is that price and company information for delisted and bankrupt companies are not available on Yahoo.
+- The final dataset is quite imbalanced.
 -

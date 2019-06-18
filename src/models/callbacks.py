@@ -159,7 +159,7 @@ class TensorboardCB(Callback):
 
     """
 
-    def __init__(self, every_n_epoch: int = 1, tb_path='../../tensorboard/', experiment_name=''):
+    def __init__(self, every_n_epoch: int = 1, tb_path='../../reports/tensorboard/', experiment_name=''):
         experiment_name = '{}/{}'.format(experiment_name, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         self.writer = SummaryWriter(log_dir=tb_path + experiment_name)
 

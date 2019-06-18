@@ -14,9 +14,12 @@ import time
 from datetime import datetime
 from typing import Tuple, List, Dict, Collection, Optional
 import numpy as np
-import cv2 as cv
+# import cv2 as cv
+print('Installing some program with conda fucked up a lot of libraries. Need to reinstall them')
+print('REINSTALL OPENCV !!!!!')
 import sklearn as skl
-from sklearn.decomposition import RandomizedPCA, PCA
+# from sklearn.decomposition import RandomizedPCA, PCA
+print('REINSTALL sklearn.decomposition!!!!!' )
 
 class MyLogTools:
     """
@@ -150,7 +153,7 @@ class MyImageTools:
         return im_array
 
     @classmethod
-    def resize(cls, im_array: np.array, size: int = 32, interpolation=cv.INTER_AREA) -> np.array:
+    def resize(cls, im_array: np.array, size: int = 32) -> np.array:
         """
         Resizes an im_array to size size.
             Args:
@@ -160,6 +163,7 @@ class MyImageTools:
             Return:
                 Returns the resized im_array
         """
+        interpolation = cv.INTER_AREA
         im_array = cv.resize(im_array, (size, size), interpolation=interpolation)
         return im_array
 
@@ -870,5 +874,6 @@ if __name__ == '__main__':
     # MyLogTools.log('xxx')
     # print(x)
     # print(len(x))
-    print_environment()
-    print('x'*120)
+    # print_environment()
+    # print('x'*120)
+    pass
