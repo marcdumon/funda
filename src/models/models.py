@@ -10,6 +10,7 @@ from torch import Tensor
 
 
 class FeedForwardNN(nn.Module):
+    # Inspired by https://yashuseth.blog/2018/07/22/pytorch-neural-network-for-tabular-data-with-categorical-embeddings/
 
     def __init__(self, emb_dims, no_of_cont, lin_layer_sizes, output_size, emb_dropout, lin_layer_dropouts):
 
