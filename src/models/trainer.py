@@ -56,6 +56,7 @@ class Trainer:
         self.cbc.on_train_begin(logs=logs)
         for epoch in range(1, self.params['n_epochs'] + 1):
             self.cbc.on_epoch_begin(epoch=epoch, logs=logs)
+            self.model.train()
             logs['train_loss'] = []
             for batch, data in enumerate(self.train_dl, 1):
                 self.cbc.on_batch_begin(batch=batch, logs=logs)
@@ -84,8 +85,8 @@ class Trainer:
                 self.cbc.on_batch_end(batch, logs=logs)
 
             # Validation
-            self.model.eval()
-            with th.no_grad():
+            self.model.eval() # Impacts dropout and batchnorm
+            with th.no_grad(): # doesn't calculate grads
                 logs['valid_loss'] = logs['y_true'] = np.array([])
                 logs['y_pred'] = np.empty((0, 3))  # y_pred has the form of [a,b,....] with a+b+....=1
                 for valid_batch, data in enumerate(self.valid_dl, 1):

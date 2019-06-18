@@ -130,14 +130,14 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
 
 if __name__ == '__main__':
     params = {
-        'experiment': 'baseline-0.5_dropouts_100_50_25_10_7_5_ll',
+        'experiment': 'baseline-with_dropouts_50_25_10_ll',
         'workers': 0,  # Todo: check ideal nr of workers
         'bs': 1024 * 10,
-        'n_epochs': 6000,
+        'n_epochs': 1000,
         'lr': 5e-3,
-        'lin_layer_sizes': [100, 50, 25, 10, 7, 5],
+        'lin_layer_sizes': [50, 25, 10],
         'emb_dropout': .04,
-        'lin_layer_dropouts': [.5, .5, .5, .5, .5, .5],
+        'lin_layer_dropouts': [.5, .5, .5],
         # 'momentum': 0.90,
     }
-    run_experiment(n_runs=2, parameters=params, log_file=True, tensorboard=True)
+    run_experiment(n_runs=1, parameters=params, log_file=True, tensorboard=True)
