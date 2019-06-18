@@ -165,6 +165,7 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     loss = all_df['X_label_loss'] > 1
     all_df['label'] = gain * 1 - loss + 1 # +1 because Labels must be [0,1,2] and not [-1,0,1] for Pytorch CrossEntropyLoss
 
+
     # Remove future features
     all_df.drop([c for c in all_df.columns if c[:2] in ['X_']], axis=1, inplace=True)
     all_df.drop([c for c in all_df.columns if c[:7] in ['MASK_X_']], axis=1, inplace=True)
