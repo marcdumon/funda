@@ -64,8 +64,6 @@ Stockpup provides data for **760 companies** starting **from 1993-06-30 till 201
 
 
 
-
-
 ### Label creation
 The procedure used to create the labels was:
   - calculate the percentage change for the closing price from the stock for up to 4 quarters.
@@ -78,7 +76,7 @@ The procedure used to create the labels was:
     \ \ \  0 & \text{otherwise}
     \end{cases}
     $$
-  - the final label is 1 if two consecutive quarters with excess gain, -1 if two consecutive quarters with excess loss and 0 otherwise.
+  - the final label is 1 if two consecutive quarters with excess gain, -1 if two consecutive quarters with excess loss and 0 otherwise.  
 The reason for choosing the excess returns iso the return of the stock was to select the best stocks, and the assumption is that this is  a stock that exceed the average return of indices when the market goes up or down. A good stock can also loose when the whole market is down, but less than average.
 
 ### Limitations
@@ -87,5 +85,9 @@ The reason for choosing the excess returns iso the return of the stock was to se
 - The features provided by Stockpup are limited. Many interesting features like R&D, COGS, etc are not available.
 - The final dataset contains only 516 companies, which is less than 10% of the amount of companies on US stock market.
 - The final dataset contains only companies that were operational at the time of the data collection and no delisted or bankrupt companies. The reason for this is that price and company information for delisted and bankrupt companies are not available on Yahoo.
-- The final dataset is quite imbalanced.
--
+- The final dataset is quite imbalanced. Roughly 60% has label = 0, 20% has label=1 and 20% has label=-1
+
+
+## Baseline model
+
+The baseline model takes as input 142 continuous and 5 categorical (dates + sector + industry). The categorical input is

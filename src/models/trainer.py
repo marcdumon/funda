@@ -41,6 +41,7 @@ class Trainer:
         self.params = params
         self.criterion = criterion
         self.optimizer = optimizer
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=5, verbose=True)
         self.cbc = callbacks
         self.mc = metrics
         self.train_dl = self.make_data_loader(train_ds)
@@ -85,8 +86,8 @@ class Trainer:
                 self.cbc.on_batch_end(batch, logs=logs)
 
             # Validation
-            self.model.eval() # Impacts dropout and batchnorm
-            with th.no_grad(): # doesn't calculate grads
+            self.model.eval()  # Impacts dropout and batchnorm
+            with th.no_grad():  # doesn't calculate grads
                 logs['valid_loss'] = logs['y_true'] = np.array([])
                 logs['y_pred'] = np.empty((0, 3))  # y_pred has the form of [a,b,....] with a+b+....=1
                 for valid_batch, data in enumerate(self.valid_dl, 1):
@@ -100,9 +101,9 @@ class Trainer:
                     logs['valid_loss'] = np.append(logs['valid_loss'], [loss.item()])
                     logs['y_pred'] = np.vstack((logs['y_pred'], y_pred.cpu().detach().numpy()))  # y_pred has the form [[a,b],[c,d],...]
                     logs['y_true'] = np.append(logs['y_true'], y_true.cpu())
+            self.scheduler.step(logs['valid_loss'])
             self.cbc.on_epoch_end(epoch=epoch, logs=logs)
 
-            # print y_pred, y_true
             if epoch % 200 == 0:
                 print(y_true[:10])
                 _, y_pred = y_pred.max(1)

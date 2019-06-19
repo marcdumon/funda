@@ -50,6 +50,15 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         Xy_valid = pd.read_csv(data_path + 'valid_dataset.csv', index_col=0)
         Xy_test = pd.read_csv(data_path + 'test_dataset.csv', index_col=0)
 
+        # Xy_train=Xy_train.sample(1000)
+        print('Data:')
+        print('train:', Xy_train.shape)
+        print('valid:', Xy_valid.shape)
+        print('test:', Xy_test.shape)
+        print('-' * 150)
+
+
+
         categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry']
         # categorical_features = []
         output_feature = 'label'
@@ -76,7 +85,7 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
 
         criterion = nn.CrossEntropyLoss()
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
-        optimizer = Adam(net.parameters(), lr=0.015)
+        optimizer = Adam(net.parameters(), lr=params['lr'])
 
         # Metrics and Callbacks
         acc = Accuracy()
@@ -106,8 +115,9 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         dummy_cont, dummy_cat, dummy_y = dummy_cont.to(device), dummy_cat.to(device), dummy_y.to(device)
         dummy_input = (dummy_cont, dummy_cat)
         graph_transforms = [hl.transforms.Fold('Constant > Gather > Gather', 'Embedding'),
-                            hl.transforms.Fold('Unsqueeze > BatchNorm > Squeeze', 'BatchNormXXX'),
-                            hl.transforms.Fold('Linear > Relu', 'Linear')]
+                            hl.transforms.Fold('Unsqueeze > BatchNorm > Squeeze', 'BatchNorm'),
+                            hl.transforms.Fold('Linear > Relu', 'LinearRelu'),
+                            hl.transforms.Fold('Dropout > LinearRelu > BatchNorm','LinearBlock')]
 
         graph = hl.build_graph(net, dummy_input, transforms=graph_transforms)
         graph.save('../../reports/experiments/{}/{}/graph.png'.format(params['experiment'], date_time), format='png')
@@ -127,17 +137,20 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         y_pred = y_pred.flatten()
         plot_confusion_matrix('../../reports/experiments/{}/{}/conf_matrix.png'.format(params['experiment'], date_time), y, y_pred, )
 
+# Check out Learning rate sheduler https://github.com/borisbanushev/stockpredictionai/blob/master/readme2.md
+# Section 4.4.3
+
 
 if __name__ == '__main__':
     params = {
         'experiment': 'baseline-with_dropouts_50_25_10_ll',
         'workers': 0,  # Todo: check ideal nr of workers
         'bs': 1024 * 10,
-        'n_epochs': 1000,
-        'lr': 5e-3,
-        'lin_layer_sizes': [50, 25, 10],
-        'emb_dropout': .04,
-        'lin_layer_dropouts': [.5, .5, .5],
+        'n_epochs': 10000,
+        'lr': 1e-2,
+        'lin_layer_sizes': [100, 50],
+        'emb_dropout': .0,
+        'lin_layer_dropouts': [.5, .5],
         # 'momentum': 0.90,
     }
-    run_experiment(n_runs=1, parameters=params, log_file=True, tensorboard=True)
+    run_experiment(n_runs=1, parameters=params, log_file=False, tensorboard=True)
