@@ -41,7 +41,7 @@ class Trainer:
         self.params = params
         self.criterion = criterion
         self.optimizer = optimizer
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=5, verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.05, patience=10, verbose=True)
         self.cbc = callbacks
         self.mc = metrics
         self.train_dl = self.make_data_loader(train_ds)
@@ -101,10 +101,10 @@ class Trainer:
                     logs['valid_loss'] = np.append(logs['valid_loss'], [loss.item()])
                     logs['y_pred'] = np.vstack((logs['y_pred'], y_pred.cpu().detach().numpy()))  # y_pred has the form [[a,b],[c,d],...]
                     logs['y_true'] = np.append(logs['y_true'], y_true.cpu())
-            self.scheduler.step(logs['valid_loss'])
+            # self.scheduler.step(logs['valid_loss'])
             self.cbc.on_epoch_end(epoch=epoch, logs=logs)
 
-            if epoch % 200 == 0:
+            if epoch % 50 == 0:
                 print(y_true[:10])
                 _, y_pred = y_pred.max(1)
                 print(y_pred[:10])

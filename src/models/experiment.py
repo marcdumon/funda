@@ -24,7 +24,7 @@ from src.models.trainer import Trainer
 from src.visualization.visualize import plot_confusion_matrix
 
 
-def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: bool):
+def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: bool, tensorboard: bool):
     for i in range(n_runs):
         # device = th.device('cpu')
         device = th.device('cuda' if th.cuda.is_available() else 'cpu')
@@ -43,21 +43,6 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         print('Parameters:')
         pprint(params)
         print('-' * 150)
-
-        # DATA
-        data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/processed/'
-        Xy_train = pd.read_csv(data_path + 'train_dataset.csv', index_col=0)
-        Xy_valid = pd.read_csv(data_path + 'valid_dataset.csv', index_col=0)
-        Xy_test = pd.read_csv(data_path + 'test_dataset.csv', index_col=0)
-
-        # Xy_train=Xy_train.sample(1000)
-        print('Data:')
-        print('train:', Xy_train.shape)
-        print('valid:', Xy_valid.shape)
-        print('test:', Xy_test.shape)
-        print('-' * 150)
-
-
 
         categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry']
         # categorical_features = []
@@ -79,11 +64,12 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         emb_dims = [(x, min(50, (x + 1) // 3)) for x in cat_dims]
 
         # NETWORK
-        net = FeedForwardNN(emb_dims, no_of_cont=142, lin_layer_sizes=params['lin_layer_sizes'],
+        net = FeedForwardNN(emb_dims, no_of_cont=15, lin_layer_sizes=params['lin_layer_sizes'],
                             output_size=3, emb_dropout=params['emb_dropout'],
                             lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
 
-        criterion = nn.CrossEntropyLoss()
+        weights = th.tensor([1/2., 1/6., 1/2.]).to(device)
+        criterion = nn.CrossEntropyLoss(weight=weights)
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
         optimizer = Adam(net.parameters(), lr=params['lr'])
 
@@ -117,7 +103,7 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         graph_transforms = [hl.transforms.Fold('Constant > Gather > Gather', 'Embedding'),
                             hl.transforms.Fold('Unsqueeze > BatchNorm > Squeeze', 'BatchNorm'),
                             hl.transforms.Fold('Linear > Relu', 'LinearRelu'),
-                            hl.transforms.Fold('Dropout > LinearRelu > BatchNorm','LinearBlock')]
+                            hl.transforms.Fold('Dropout > LinearRelu > BatchNorm', 'LinearBlock')]
 
         graph = hl.build_graph(net, dummy_input, transforms=graph_transforms)
         graph.save('../../reports/experiments/{}/{}/graph.png'.format(params['experiment'], date_time), format='png')
@@ -137,6 +123,7 @@ def run_experiment(n_runs: int, parameters: dict, log_file: bool, tensorboard: b
         y_pred = y_pred.flatten()
         plot_confusion_matrix('../../reports/experiments/{}/{}/conf_matrix.png'.format(params['experiment'], date_time), y, y_pred, )
 
+
 # Check out Learning rate sheduler https://github.com/borisbanushev/stockpredictionai/blob/master/readme2.md
 # Section 4.4.3
 
@@ -148,9 +135,25 @@ if __name__ == '__main__':
         'bs': 1024 * 10,
         'n_epochs': 10000,
         'lr': 1e-2,
-        'lin_layer_sizes': [100, 50],
+        'lin_layer_sizes': [50, 25, 5],
         'emb_dropout': .0,
-        'lin_layer_dropouts': [.5, .5],
+        'lin_layer_dropouts': [.0, .5, .5],
         # 'momentum': 0.90,
     }
-    run_experiment(n_runs=1, parameters=params, log_file=False, tensorboard=True)
+
+    # DATA
+    data_path = '/mnt/Development/My_Projects/fundamental_stock_analysis/data/processed/'
+    Xy_train = pd.read_csv(data_path + 'train_dataset.csv', index_col=0)
+    Xy_valid = pd.read_csv(data_path + 'valid_dataset.csv', index_col=0)
+    Xy_test = pd.read_csv(data_path + 'test_dataset.csv', index_col=0)
+
+    # Xy_train=Xy_train.sample(1000)
+    print('Data:')
+    print('train:', Xy_train.shape)
+    print('valid:', Xy_valid.shape)
+    print('test:', Xy_test.shape)
+    print('-' * 150)
+    # print(Xy_train.columns.values)
+    cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
+
+    run_experiment(Xy_train[cols], Xy_valid[cols], n_runs=1, parameters=params, log_file=False, tensorboard=True)
