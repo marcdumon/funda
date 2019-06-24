@@ -100,7 +100,9 @@ class Trainer:
                     logs['valid_loss'] = np.append(logs['valid_loss'], [loss.item()])
                     logs['y_pred'] = np.vstack((logs['y_pred'], y_pred.cpu().detach().numpy()))  # y_pred has the form [[a,b],[c,d],...]
                     logs['y_true'] = np.append(logs['y_true'], y_true.cpu())
-            # self.scheduler.step(logs['valid_loss'])
+
+            # Todo: schedular doesn't work: TypeError: only size-1 arrays can be converted to Python scalars
+            self.scheduler.step(sum(logs['valid_loss']) / len(logs['valid_loss']))
             self.cbc.on_epoch_end(epoch=epoch, logs=logs)
 
             if epoch % 50 == 0:

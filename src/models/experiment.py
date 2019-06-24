@@ -69,7 +69,7 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
                             lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
 
         criterion_weights = th.tensor([1 / 2., 1 / 6., 1 / 2.]).to(device)
-        criterion_weights = th.tensor([1. , 1. , 1. ]).to(device)
+        # criterion_weights = th.tensor([1. , 1. , 1. ]).to(device)
         criterion = nn.CrossEntropyLoss(weight=criterion_weights)
         # criterion = nn.MSELoss()
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
@@ -136,12 +136,12 @@ if __name__ == '__main__':
         'experiment': 'baseline-with_dropouts_50_25_10_ll',
         'workers': 0,  # Todo: check ideal nr of workers
         'bs': 1024 * 1,
-        'n_epochs': 1000,
-        'lr': 1e-3,
+        'n_epochs': 30000,
+        'lr': 1e-4,
         'lin_layer_sizes': [50,10],
         'emb_dropout': .0,
         'lin_layer_dropouts': [.0,.5],
-        # 'momentum': 0.90,
+        'momentum': 0.90,
     }
 
     # DATA
