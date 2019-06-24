@@ -44,7 +44,7 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         pprint(params)
         print('-' * 150)
 
-        categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry']
+        categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry','INF_scale']
         # categorical_features = []
         output_feature = 'label'
 
@@ -64,13 +64,16 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         emb_dims = [(x, min(50, (x + 1) // 3)) for x in cat_dims]
 
         # NETWORK
-        net = FeedForwardNN(emb_dims, no_of_cont=15, lin_layer_sizes=params['lin_layer_sizes'],
+        net = FeedForwardNN(emb_dims, no_of_cont=116, lin_layer_sizes=params['lin_layer_sizes'],
                             output_size=3, emb_dropout=params['emb_dropout'],
                             lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
 
-        weights = th.tensor([1/2., 1/6., 1/2.]).to(device)
-        criterion = nn.CrossEntropyLoss(weight=weights)
+        criterion_weights = th.tensor([1 / 2., 1 / 6., 1 / 2.]).to(device)
+        criterion_weights = th.tensor([1. , 1. , 1. ]).to(device)
+        criterion = nn.CrossEntropyLoss(weight=criterion_weights)
+        # criterion = nn.MSELoss()
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
+        # optimizer = Adam(net.parameters(), lr=params['lr'], weight_decay=0.005)
         optimizer = Adam(net.parameters(), lr=params['lr'])
 
         # Metrics and Callbacks
@@ -83,8 +86,7 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         cbc = CallbackContainer()
         cbc.register(MetricCallback(mc))
         cbc.register(PrintLogs(every_n_epoch=10))
-        if tensorboard:
-            cbc.register(TensorboardCB(every_n_epoch=20, experiment_name=params['experiment']))
+        if tensorboard: cbc.register(TensorboardCB(every_n_epoch=20, experiment_name=params['experiment']))
 
         trainer = Trainer(train_ds=train_ds, valid_ds=valid_ds, model=net, criterion=criterion,
                           optimizer=optimizer, params=params, callbacks=cbc, metrics=mc)
@@ -96,6 +98,7 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         print('-' * 150)
 
         # Make graph image
+        # Todo: make this better
         train_dl = trainer.make_data_loader(train_ds)
         dummy_cont, dummy_cat, dummy_y = next(iter(train_dl))
         dummy_cont, dummy_cat, dummy_y = dummy_cont.to(device), dummy_cat.to(device), dummy_y.to(device)
@@ -132,12 +135,12 @@ if __name__ == '__main__':
     params = {
         'experiment': 'baseline-with_dropouts_50_25_10_ll',
         'workers': 0,  # Todo: check ideal nr of workers
-        'bs': 1024 * 10,
-        'n_epochs': 10000,
-        'lr': 1e-2,
-        'lin_layer_sizes': [50, 25, 5],
+        'bs': 1024 * 1,
+        'n_epochs': 1000,
+        'lr': 1e-3,
+        'lin_layer_sizes': [50,10],
         'emb_dropout': .0,
-        'lin_layer_dropouts': [.0, .5, .5],
+        'lin_layer_dropouts': [.0,.5],
         # 'momentum': 0.90,
     }
 
@@ -154,6 +157,7 @@ if __name__ == '__main__':
     print('test:', Xy_test.shape)
     print('-' * 150)
     # print(Xy_train.columns.values)
-    cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
+    # cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
+    cols = Xy_train.columns
 
     run_experiment(Xy_train[cols], Xy_valid[cols], n_runs=1, parameters=params, log_file=False, tensorboard=True)

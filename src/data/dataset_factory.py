@@ -152,13 +152,18 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     all_df.drop(['index'], axis=1, inplace=True)
 
     # Handle nan
-    nan_columns = all_df.columns[all_df.isna().sum() > 0]
-    nan_mask = all_df.loc[:, nan_columns].isna()
+    # Some nan's are coded as 0's; we have to remove them
+    all_df.replace(0,np.nan, inplace=True)
+    # nan_columns = all_df.columns[all_df.isna().sum() > 0]
+    # nan_mask = all_df.loc[:, nan_columns].isna()
     # replace nan with 0, the mean of the normalised columns
-    all_df = all_df.fillna(0)
+    # Todo: fillna(0) should be done after normalisation because now it changes the distribution !!!!
+    # Todo: There are a lot of 0's that are nan's. They should be rteplaced with nan's
+    # all_df = all_df.fillna(0)
     # add mask as feature
-    nan_mask.columns = ['MASK_{}'.format(c) for c in nan_mask.columns]
-    all_df = pd.concat([all_df, nan_mask.astype(int)], axis=1)
+    # nan_mask.columns = ['MASK_{}'.format(c) for c in nan_mask.columns]
+    # all_df = pd.concat([all_df, nan_mask.astype(int)], axis=1)
+
 
     # Add final label
     gain = all_df['X_label_gain'] > 1
@@ -206,12 +211,18 @@ def split_normalize_final_dataset(n_valid_test_tickers=100, n_valid_test_years=2
     non_normalise_cols = non_normalise_cols + [c for c in all_df.columns if c[:2] in ['X_', 'MA']]  # MASK_
     normalize_cols = [c for c in train_df.columns.values if c not in non_normalise_cols]
 
-    mean = train_df[normalize_cols].mean()
-    std = train_df[normalize_cols].std()
+    mean = train_df[normalize_cols].mean(skipna=True)
+    std = train_df[normalize_cols].std(skipna=True)
 
     train_df[normalize_cols] = (train_df[normalize_cols] - mean) / std
     valid_df[normalize_cols] = (valid_df[normalize_cols] - mean) / std
     test_df[normalize_cols] = (test_df[normalize_cols] - mean) / std
+
+    # Replace nan with 0's. This is the mean of the normalised features.
+    # Todo: replacing nan's with 0's results in a mean unequal to 0. Is this a problem???
+    train_df.replace(np.nan,0,inplace=True)
+    valid_df.replace(np.nan,0,inplace=True)
+    test_df.replace(np.nan,0,inplace=True)
 
     # Remove metadata
     train_df = train_df.drop(['ticker', 'quarter_start', 'quarter_end', 'filing_date'], axis=1)

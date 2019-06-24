@@ -55,12 +55,55 @@ The following data were collected:
     -	type,	filing_date,	period_of_report,	items
 
 #### Results:
-Stockpup provides data for **760 companies** starting **from 1993-06-30 till 2018-11-30**. For 207 companies it was impossible to download price, company information or filings data. One reason is that Yahoo doesn't provides data for delisted companies (bankruptcy, take-over, ...) or some companies changed their ticker and Stockpup, Yahoo and Edgar use different ticker for the same company.  The final dataset contains data for **516 companies**.
-
-
+Stockpup provides data for **760 companies** starting **from 1993-06-30 till 2018-11-30**. For 207 companies it was impossible to download price, company information or filings data. One reason is that Yahoo doesn't provides data for delisted companies (bankruptcy, take-over, ...) or some companies changed their ticker and Stockpup, Yahoo and Edgar use different ticker for the same company. The final dataset contains data for **516 companies** and has **40.957 samples**. This gives an **average of 79 samples per company**.
 
 
 ### Feature selection and creation
+The final dataset has 6 categorical, 116 continuous and 25 binary features. The binary features are the masks to indicate missing values in the continuous features.   
+The continuous 'BAL_', 'INC_' and 'CF_' were scaled per company by dividing the feature with the 'shares' feature. A new feature 'INF_scale' was created as a proxy for the size of the company.   
+All missing values were set to 0, and a 1 was added to the 'MASK_' feature corresponding to the missing feature.  
+
+
+
+
+#### Categorical
+- m_start: [1...12] : first month of the quarter
+- m_end: [1...12]	: last month of the quarter
+- q_start: [1...4] : the quarter number of the first month
+- sector:	[0...10]
+- industry: [0...123]
+- INF_scale : [5...11] : $\text{INF_scale}=round[log_{10}(\text{BAL_revenue})]$
+
+#### Continuous
+- BAL_assets
+-	BAL_current_assets
+-	BAL_current_liabilities
+-	BAL_goodwill_&\_intangibles
+-	BAL_liabilities
+-	BAL_long-term_debt
+-	BAL_non-controlling_interest
+-	BAL_preferred_equity
+- BAL_shareholders_equity
+- CF_capital_expenditures
+- CF_cash_at_end_of_period
+- CF_cash_change_during_period
+- CF_cash_from_financing_activities
+- CF_cash_from_investing_activities
+- CF_cash_from_operating_activities
+- INC_earnings
+- INC_earnings_earnings_available
+- INC_revenue
+- INF_shares
+- INF_shares_split_adjusted
+- INF_split_factor
+
+
+
+
+
+#### Binary
+
+
 
 
 
@@ -86,6 +129,7 @@ The reason for choosing the excess returns iso the return of the stock was to se
 - The final dataset contains only 516 companies, which is less than 10% of the amount of companies on US stock market.
 - The final dataset contains only companies that were operational at the time of the data collection and no delisted or bankrupt companies. The reason for this is that price and company information for delisted and bankrupt companies are not available on Yahoo.
 - The final dataset is quite imbalanced. Roughly 60% has label = 0, 20% has label=1 and 20% has label=-1
+-
 
 
 ## Baseline model

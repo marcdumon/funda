@@ -72,7 +72,6 @@ class Trainer:
 
                 # y_pred = y_pred.squeeze()
                 y_true = y_true.squeeze()
-
                 loss = self.criterion(y_pred, y_true)
                 logs['train_loss'] = np.append(logs['train_loss'], loss.item())
                 self.cbc.on_loss_end()
