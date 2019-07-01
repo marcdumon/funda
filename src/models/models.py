@@ -93,3 +93,45 @@ class FeedForwardNN(nn.Module):
         x = self.output_layer(x)
 
         return x
+
+
+class AutoEncoder(nn.Module):
+    def __init__(self):
+        super(AutoEncoder, self).__init__()
+        # Encoder
+        self.fc1 = nn.Linear(116, 115)
+        self.fc2 = nn.Linear(115, 114)
+        # self.fc3 = nn.Linear(114, 113)
+        # self.fc4 = nn.Linear(113, 112)
+        # self.fc5 = nn.Linear(112, 111)
+        # self.fc6 = nn.Linear(111, 110)
+        # self.fc7 = nn.Linear(110, 111)
+        # self.fc8 = nn.Linear(111, 112)
+        # self.fc9 = nn.Linear(112, 113)
+        # self.fc10 = nn.Linear(113, 114)
+        self.fc11 = nn.Linear(114, 115)
+        self.fc12 = nn.Linear(115, 116)
+        # self.fc13 = nn.Linear(110, 115)
+        # self.fc14 = nn.Linear(115, 116)
+        self.relu = nn.ReLU()
+        # self.tanh=nn.Tanh()
+        # nn.init.kaiming_normal_(self.fc1.weight.data)
+        # nn.init.kaiming_normal_(self.fc6.weight.data)
+
+    def forward(self, cont_data):
+        # x = self.relu(self.fc1(cont_data))
+        x = self.fc1(cont_data)
+        x = self.relu(self.fc2(x))
+        # x = self.relu(self.fc3(x))
+        # x = self.relu(self.fc4(x))
+        # x = self.relu(self.fc5(x))
+        # x = self.relu(self.fc6(x))
+        # x = self.relu(self.fc7(x))
+        # x = self.relu(self.fc8(x))
+        # x = self.relu(self.fc9(x))
+        # x = self.relu(self.fc10(x))
+        x = self.relu(self.fc11(x))
+        x = self.fc12(x)
+        # x = self.relu(self.fc13(x))
+        # x = self.fc14(x)
+        return x

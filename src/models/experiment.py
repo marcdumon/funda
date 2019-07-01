@@ -19,7 +19,7 @@ from datasets import TabularDataset
 from predict_model import predict
 from src.models.callbacks import CallbackContainer, PrintLogs, TensorboardCB
 from src.models.metrics import Accuracy, PredictionEntropy, MetricContainer, MetricCallback, Precision, Recall
-from src.models.models import FeedForwardNN
+from src.models.models import FeedForwardNN, AutoEncoder
 from src.models.trainer import Trainer
 from src.visualization.visualize import plot_confusion_matrix
 
@@ -44,18 +44,21 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         pprint(params)
         print('-' * 150)
 
-        categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry','INF_scale']
-        # categorical_features = []
-        output_feature = 'label'
+        categorical_features = ['m_start', 'm_end', 'q_start', 'sector', 'industry', 'INF_scale']
+        # output_feature = 'label'
 
         # Combine train, test, valid to be sure to have all categories
         Xy_all = pd.concat([Xy_train, Xy_valid, Xy_test])
+
+        # TEST
+        Xy_all=Xy_all.loc[Xy_all['label']==2,:]
+
         label_encoders = {}
         for cat_col in categorical_features:
             label_encoders[cat_col] = LabelEncoder().fit(Xy_all[cat_col])
             Xy_train[cat_col] = label_encoders[cat_col].transform(Xy_train[cat_col])
             Xy_valid[cat_col] = label_encoders[cat_col].transform(Xy_valid[cat_col])
-            Xy_test[cat_col] = label_encoders[cat_col].transform(Xy_test[cat_col])
+            # Xy_test[cat_col] = label_encoders[cat_col].transform(Xy_test[cat_col])
 
         # Datasets
         train_ds = TabularDataset(data=Xy_train, cat_cols=categorical_features, output_col='label')
@@ -64,14 +67,14 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         emb_dims = [(x, min(50, (x + 1) // 3)) for x in cat_dims]
 
         # NETWORK
-        net = FeedForwardNN(emb_dims, no_of_cont=116, lin_layer_sizes=params['lin_layer_sizes'],
-                            output_size=3, emb_dropout=params['emb_dropout'],
-                            lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
+        # net = FeedForwardNN(emb_dims, no_of_cont=116, lin_layer_sizes=params['lin_layer_sizes'],
+        #                     output_size=3, emb_dropout=params['emb_dropout'],
+        #                     lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
+        net = AutoEncoder()
 
-        criterion_weights = th.tensor([1 / 2., 1 / 6., 1 / 2.]).to(device)
-        # criterion_weights = th.tensor([1. , 1. , 1. ]).to(device)
-        criterion = nn.CrossEntropyLoss(weight=criterion_weights)
-        # criterion = nn.MSELoss()
+        # criterion_weights = th.tensor([1 / 2., 1 / 6., 1 / 2.]).to(device)
+        # criterion = nn.CrossEntropyLoss(weight=criterion_weights)
+        criterion = nn.MSELoss()
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
         # optimizer = Adam(net.parameters(), lr=params['lr'], weight_decay=0.005)
         optimizer = Adam(net.parameters(), lr=params['lr'])
@@ -82,7 +85,8 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         precision = Precision()
         recall = Recall()
 
-        mc = MetricContainer(metrics=[acc, precision, recall, entr])
+        # mc = MetricContainer(metrics=[acc, precision, recall, entr])
+        mc = MetricContainer(metrics=[acc])
         cbc = CallbackContainer()
         cbc.register(MetricCallback(mc))
         cbc.register(PrintLogs(every_n_epoch=10))
@@ -98,11 +102,13 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         print('-' * 150)
 
         # Make graph image
-        # Todo: make this better
+        # Todo: make this better. Redundant with dummy in trainer
         train_dl = trainer.make_data_loader(train_ds)
         dummy_cont, dummy_cat, dummy_y = next(iter(train_dl))
         dummy_cont, dummy_cat, dummy_y = dummy_cont.to(device), dummy_cat.to(device), dummy_y.to(device)
-        dummy_input = (dummy_cont, dummy_cat)
+        # dummy_input = (dummy_cont, dummy_cat)
+        dummy_input = dummy_cont
+
         graph_transforms = [hl.transforms.Fold('Constant > Gather > Gather', 'Embedding'),
                             hl.transforms.Fold('Unsqueeze > BatchNorm > Squeeze', 'BatchNorm'),
                             hl.transforms.Fold('Linear > Relu', 'LinearRelu'),
@@ -116,31 +122,28 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         th.save(model, '../../reports/experiments/{}/{}/model.pth'.format(params['experiment'], date_time))
 
         # Make confusion matrix
-        model.eval()  # should alse disable dropout
-        cont_X = valid_ds.cont_X
-        cat_X = valid_ds.cat_X
-        y = valid_ds.y
-        y_pred = predict(model, cont_X, cat_X, labels=True)
-        # flatten because y=[[],[],...]
-        y = y.flatten()
-        y_pred = y_pred.flatten()
-        plot_confusion_matrix('../../reports/experiments/{}/{}/conf_matrix.png'.format(params['experiment'], date_time), y, y_pred, )
+        # model.eval()  # should alse disable dropout
+        # cont_X = valid_ds.cont_X
+        # cat_X = valid_ds.cat_X
+        # y = valid_ds.y
+        # y_pred = predict(model, cont_X, cat_X, labels=True)
+        # # flatten because y=[[],[],...]
+        # y = y.flatten()
+        # y_pred = y_pred.flatten()
+        # plot_confusion_matrix('../../reports/experiments/{}/{}/conf_matrix.png'.format(params['experiment'], date_time), y, y_pred, )
 
-
-# Check out Learning rate sheduler https://github.com/borisbanushev/stockpredictionai/blob/master/readme2.md
-# Section 4.4.3
 
 
 if __name__ == '__main__':
     params = {
-        'experiment': 'baseline-with_dropouts_50_25_10_ll',
+        'experiment': 'Autoencoder_116_110_116',
         'workers': 0,  # Todo: check ideal nr of workers
         'bs': 1024 * 1,
         'n_epochs': 30000,
-        'lr': 1e-4,
-        'lin_layer_sizes': [50,10],
+        'lr': 1e-3,
+        'lin_layer_sizes': [50, 10],
         'emb_dropout': .0,
-        'lin_layer_dropouts': [.0,.5],
+        'lin_layer_dropouts': [.0, .5],
         'momentum': 0.90,
     }
 
@@ -157,6 +160,7 @@ if __name__ == '__main__':
     print('test:', Xy_test.shape)
     print('-' * 150)
     # print(Xy_train.columns.values)
+    # cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
     # cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
     cols = Xy_train.columns
 
