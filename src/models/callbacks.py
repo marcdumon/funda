@@ -143,8 +143,8 @@ class PrintLogs(Callback):
             metric_str = ''
             for k in logs:
                 if 'metric.' in k: metric_str += '{}: {:6.4f} | '.format(k.split('.')[1], logs[k])
-            print('{} {: 6d}/{} | loss (t/v): {:7.5f}/{:7.5f} | '
-                  .format(now, epoch, logs['params']['n_epochs'], train_loss, valid_loss) + metric_str)
+            print('{} {: 6d}/{} | lr: {:5.0e} | loss (t/v): {:7.5f}/{:7.5f} | '
+                  .format(now, epoch, logs['params']['n_epochs'], logs['lr'] ,train_loss, valid_loss) + metric_str)
 
     def on_train_end(self, logs):
         now = datetime.datetime.now()
@@ -159,10 +159,9 @@ class TensorboardCB(Callback):
 
     """
 
-    def __init__(self, every_n_epoch: int = 1, tb_path='../../reports/tensorboard/', experiment_name=''):
+    def __init__(self, every_n_epoch: int = 1, tb_path='/mnt/Development/My_Projects/fundamental_stock_analysis/reports/tensorboard/', experiment_name=''):
         experiment_name = '{}/{}'.format(experiment_name, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         self.writer = SummaryWriter(log_dir=tb_path + experiment_name)
-
         self.every_n_epoch = every_n_epoch
         super(TensorboardCB, self).__init__()
 
@@ -210,7 +209,9 @@ class TensorboardCB(Callback):
             valid_loss = sum(logs['valid_loss']) / len(logs['valid_loss'])
             self.writer.add_scalar('Loss/Train', train_loss, epoch)
             self.writer.add_scalar('Loss/Valid', valid_loss, epoch)
-            self.writer.add_scalar('Loss/Train-Valid', train_loss - valid_loss, epoch)
+            self.writer.add_scalar('Loss/Valid-Train', valid_loss - train_loss, epoch)
+            # Write lr
+            self.writer.add_scalar('lr', logs['lr'], epoch)
 
             # Get all metrics from logs. Metrics have the "metric." prefix
             for k, v in logs.items():

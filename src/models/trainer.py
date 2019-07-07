@@ -43,9 +43,14 @@ class Trainer:
         self.model = model.to(device)
         self.criterion = criterion
         self.optimizer = optimizer
+
+        # For info on schedulars see: https://medium.com/udacity-pytorch-challengers/ideas-on-how-to-fine-tune-a-pre-trained-model-in-pytorch-184c47185a20
         # self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.2, threshold=0.02,
         #                                                       patience=50, cooldown=100, min_lr=1e-6, verbose=True)
-        self.scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-6, max_lr=1e-4, cycle_momentum=False)
+        # self.scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-5, max_lr=1e-2, step_size_up=1000,
+        #                                              mode='exp_range', gamma=1., cycle_momentum=True) # For SGD
+        self.scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=1e-7, max_lr=1e-4, step_size_up=125,
+                                                     mode='exp_range', gamma=1., cycle_momentum=False) # For Adam
         # self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(self.train_dl), eta_min=0, last_epoch=-1)
         # self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=256*2, eta_min=0, last_epoch=-1)
         self.cbc = callbacks
@@ -62,9 +67,6 @@ class Trainer:
         self.cbc.on_train_begin(logs=logs)
         for epoch in range(1, self.params['n_epochs'] + 1):
             self.cbc.on_epoch_begin(epoch=epoch, logs=logs)
-
-            # self.scheduler.step()
-
             self.model.train()
             logs['train_loss'] = []
             for batch, data in enumerate(self.train_dl, 1):
@@ -78,16 +80,8 @@ class Trainer:
                 y_pred = self.model(x_cont)
 
                 self.cbc.on_loss_begin()
-
                 # y_true = y_true.squeeze()
                 y_true = x_cont
-
-                # print(y_true)
-                # print(y_pred)
-                # print(y_true.shape,y_pred.shape)
-                # print(y_true.max(),y_pred.max())
-                #
-
                 loss = self.criterion(y_pred, y_true)
                 logs['train_loss'] = np.append(logs['train_loss'], loss.item())
                 self.cbc.on_loss_end()
@@ -95,21 +89,17 @@ class Trainer:
                 self.cbc.on_backward_begin()
                 loss.backward()
                 self.optimizer.step()
-
                 self.cbc.on_backward_end()
+                self.scheduler.step() # Todo: Before or after optimizer step?  #does this affect the gradients?
 
                 self.cbc.on_batch_end(batch, logs=logs)
 
-            if epoch % 10 == 0:
+            if epoch % 100 == 0:
                 with th.no_grad():  # Todo: Is this necessary
-                    # print(y_true[:10])
-                    # print(y_pred[:10])
-                    print('\t\ty_true: [{:+10.5f} {:+10.5f}], mean: {:+10.5f}, std: {:+10.5f}'.format(y_true.min().item(), y_true.max().item(), y_true.mean().item(),
-                                                                                                      y_true.std().item()))
-                    print('\t\ty_pred: [{:+10.5f} {:+10.5f}], mean: {:+10.5f}, std: {:+10.5f}'.format(y_pred.min().item(), y_pred.max().item(), y_pred.mean().item(),
-                                                                                                      y_pred.std().item()))
-                    for param_group in self.optimizer.param_groups:
-                        print('\t\t{:.5e}'.format(param_group['lr']))
+                    print('\t\ty_true: [{:+10.5f} {:+10.5f}], mean: {:+10.5f}, std: {:+10.5f}'.format(
+                        y_true.min().item(), y_true.max().item(), y_true.mean().item(), y_true.std().item()))
+                    print('\t\ty_pred: [{:+10.5f} {:+10.5f}], mean: {:+10.5f}, std: {:+10.5f}'.format(
+                        y_pred.min().item(), y_pred.max().item(), y_pred.mean().item(), y_pred.std().item()))
 
             # Validation
             self.model.eval()  # Impacts dropout and batchnorm
@@ -137,21 +127,14 @@ class Trainer:
 
             # self.scheduler.step(sum(logs['valid_loss']) / len(logs['valid_loss']))
             # self.scheduler.step(loss)
-            self.scheduler.step()
+            # self.scheduler.step()
+
+            # Get lr for callbacks
+            for param_group in self.optimizer.param_groups:
+                lr = param_group['lr']
+                logs['lr'] = lr
 
             self.cbc.on_epoch_end(epoch=epoch, logs=logs)
-
-            # if epoch % 50 == 0:
-            #     print(y_true[:10])
-            #     _, y_pred = y_pred.max(1)
-            #     print(y_pred[:10])
-            #     print((y_true[:10] == y_pred[:10]) * 1)
-            # if epoch % 10 == 0:
-            #     with th.no_grad():  # Todo: Is this necessary
-            #         # print(y_true[:10])
-            #         # print(y_pred[:10])
-            #         print(y_true.min().item(), y_true.max().item())
-            #         print(y_pred.min().item(), y_pred.max().item())
 
         self.cbc.on_train_end(logs=logs)
         return self.model

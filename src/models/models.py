@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-
+import numpy as np
 
 class FeedForwardNN(nn.Module):
     # Inspired by https://yashuseth.blog/2018/07/22/pytorch-neural-network-for-tabular-data-with-categorical-embeddings/
@@ -96,32 +96,99 @@ class FeedForwardNN(nn.Module):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, code):
         super(AutoEncoder, self).__init__()
+        self.code=code
         # Encoder
-        self.fc1 = nn.Linear(116, 115)
-        self.fc2 = nn.Linear(115, 114)
-        # self.fc3 = nn.Linear(114, 113)
-        # self.fc4 = nn.Linear(113, 112)
-        # self.fc5 = nn.Linear(112, 111)
-        # self.fc6 = nn.Linear(111, 110)
-        # self.fc7 = nn.Linear(110, 111)
-        # self.fc8 = nn.Linear(111, 112)
-        # self.fc9 = nn.Linear(112, 113)
-        # self.fc10 = nn.Linear(113, 114)
-        self.fc11 = nn.Linear(114, 115)
-        self.fc12 = nn.Linear(115, 116)
-        # self.fc13 = nn.Linear(110, 115)
+        self.fc1 = nn.Linear(116, code)
+        # self.fc2 = nn.Linear(90, 75)
+        # self.fc3 = nn.Linear(90, 80)
+        # self.fc4 = nn.Linear(80, 70)
+        # self.fc5 = nn.Linear(240, code)
+
+        # self.fc6 = nn.Linear(code, 240)
+        # self.fc7 = nn.Linear(70, 80)
+        # self.fc8 = nn.Linear(80, 90)
+        # self.fc9 = nn.Linear(75, 90)
+        self.fc10 = nn.Linear(code, 116)
+        # self.fc11 = nn.Linear(55, 116)
+        # self.fc12 = nn.Linear(code, 75)
+        # self.fc13 = nn.Linear(75, 116)
         # self.fc14 = nn.Linear(115, 116)
-        self.relu = nn.ReLU()
+        # self.relu = nn.ReLU()
         # self.tanh=nn.Tanh()
-        # nn.init.kaiming_normal_(self.fc1.weight.data)
+        # self.sigmoid=nn.Sigmoid()
+        # self.selu=nn.SELU() # Initialise weights
+
+        # Initialize weights for RELU
+        # # nn.init.kaiming_normal_(self.fc1.weight.data)
+        # # nn.init.kaiming_normal_(self.fc2.weight.data)
+        # # nn.init.kaiming_normal_(self.fc3.weight.data)
+        # # nn.init.kaiming_normal_(self.fc4.weight.data)
+        # nn.init.kaiming_normal_(self.fc5.weight.data)
         # nn.init.kaiming_normal_(self.fc6.weight.data)
+        # # nn.init.kaiming_normal_(self.fc7.weight.data)
+        # # nn.init.kaiming_normal_(self.fc8.weight.data)
+        # nn.init.kaiming_normal_(self.fc9.weight.data)
+        # nn.init.kaiming_normal_(self.fc10.weight.data)
+        # # nn.init.kaiming_normal_(self.fc11.weight.data)
+        # # nn.init.kaiming_normal_(self.fc12.weight.data)
+        # # nn.init.kaiming_normal_(self.fc13.weight.data)
+        # # nn.init.kaiming_normal_(self.fc14.weight.data)
+
+        # Initialize weights for SELU
+        # self.fc1.weight.data.normal_(0.0, np.sqrt(1/(116*100)))
+        # self.fc2.weight.data.normal_(0.0, np.sqrt(1/(100*90)))
+        # self.fc3.weight.data.normal_(0.0, np.sqrt(1/(90*80)))
+        # self.fc4.weight.data.normal_(0.0, np.sqrt(1/(80*70)))
+        # self.fc5.weight.data.normal_(0.0, np.sqrt(1/(70*self.code)))
+        # self.fc6.weight.data.normal_(0.0, np.sqrt(1/(self.code*70)))
+        # self.fc7.weight.data.normal_(0.0, np.sqrt(1/(70*80)))
+        # self.fc8.weight.data.normal_(0.0, np.sqrt(1/(80*90)))
+        # self.fc9.weight.data.normal_(0.0, np.sqrt(1/(90*100)))
+        # self.fc10.weight.data.normal_(0.0, np.sqrt(1/(100*116)))
 
     def forward(self, cont_data):
+
         # x = self.relu(self.fc1(cont_data))
+        # x = self.relu(self.fc2(x))
+        # x = self.relu(self.fc3(x))
+        # x = self.relu(self.fc4(x))
+        # x = self.relu(self.fc5(x))
+        # x = self.relu(self.fc6(x))
+        # x = self.relu(self.fc7(x))
+        # x = self.relu(self.fc8(x))
+        # x = self.relu(self.fc9(x))
+        # x = self.fc10(x)
+
+
+
+        # x = self.selu(self.fc1(cont_data))
+        # x = self.selu(self.fc2(x))
+        # x = self.selu(self.fc3(x))
+        # x = self.selu(self.fc4(x))
+        # x = self.selu(self.fc5(x))
+        # x = self.selu(self.fc6(x))
+        # x = self.selu(self.fc7(x))
+        # x = self.selu(self.fc8(x))
+        # x = self.selu(self.fc9(x))
+        # x = self.fc10(x)
+
+
+
         x = self.fc1(cont_data)
-        x = self.relu(self.fc2(x))
+        # x = self.fc2(x)
+        # x = self.fc3(x)
+        # x = self.fc4(x)
+        # x = self.fc5(x)
+        # x = self.fc6(x)
+        # x = self.fc7(x)
+        # x = self.fc8(x)
+        # x = self.fc9(x)
+        x = self.fc10(x)
+
+        # x = self.relu(self.fc2(x))
+        # x = self.sigmoid(self.fc2(x))
         # x = self.relu(self.fc3(x))
         # x = self.relu(self.fc4(x))
         # x = self.relu(self.fc5(x))
@@ -130,8 +197,9 @@ class AutoEncoder(nn.Module):
         # x = self.relu(self.fc8(x))
         # x = self.relu(self.fc9(x))
         # x = self.relu(self.fc10(x))
-        x = self.relu(self.fc11(x))
-        x = self.fc12(x)
-        # x = self.relu(self.fc13(x))
+        # x = self.fc11(x)
+        # x = self.fc12(x)
+        # x = self.sigmoid(self.fc12(x))
+        # x = self.fc13(x)
         # x = self.fc14(x)
         return x

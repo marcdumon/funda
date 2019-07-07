@@ -13,10 +13,12 @@ import torch.nn as nn
 from sklearn.preprocessing import LabelEncoder
 from torch.optim import SGD, Adam
 import hiddenlayer as hl
-from my_toolbox import MyOsTools as mos
 
-from datasets import TabularDataset
-from predict_model import predict
+from lr_finder import LRFinder
+from src.my_tools.my_toolbox import MyOsTools as mos
+
+from src.models.datasets import TabularDataset
+from src.models.predictor import predict
 from src.models.callbacks import CallbackContainer, PrintLogs, TensorboardCB
 from src.models.metrics import Accuracy, PredictionEntropy, MetricContainer, MetricCallback, Precision, Recall
 from src.models.models import FeedForwardNN, AutoEncoder
@@ -24,11 +26,18 @@ from src.models.trainer import Trainer
 from src.visualization.visualize import plot_confusion_matrix
 
 
-def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: bool, tensorboard: bool):
-    for i in range(n_runs):
+def run_experiment(Xy_train, Xy_valid, n_runs: int, log_file: bool, tensorboard: bool):
+    experiment = params['experiment']
+    # code_range=range(61, 67, 5)
+    # code_range=range(5, 115, 5)
+    code_range=[60]
+    # code_range=[50,51,52,53,54,115,116]
+    for code in code_range:
+        print(code)
+        params['experiment'] = experiment.format(code)
+        params['report_path'] = '/mnt/Development/My_Projects/fundamental_stock_analysis/reports/experiments/{}/{}/'.format(params['experiment'], date_time)
         # device = th.device('cpu')
         device = th.device('cuda' if th.cuda.is_available() else 'cpu')
-        date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())  # Session datetime
 
         if log_file:
             # Output console to file
@@ -48,10 +57,8 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         # output_feature = 'label'
 
         # Combine train, test, valid to be sure to have all categories
-        Xy_all = pd.concat([Xy_train, Xy_valid, Xy_test])
-
-        # TEST
-        Xy_all=Xy_all.loc[Xy_all['label']==2,:]
+        # Xy_all = pd.concat([Xy_train, Xy_valid, Xy_test])
+        Xy_all = pd.concat([Xy_train, Xy_valid])
 
         label_encoders = {}
         for cat_col in categorical_features:
@@ -59,6 +66,20 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
             Xy_train[cat_col] = label_encoders[cat_col].transform(Xy_train[cat_col])
             Xy_valid[cat_col] = label_encoders[cat_col].transform(Xy_valid[cat_col])
             # Xy_test[cat_col] = label_encoders[cat_col].transform(Xy_test[cat_col])
+
+
+
+        # Label filter
+        l = 0
+        Xy_train = Xy_train.loc[Xy_train['label'] == l, :]
+        Xy_valid = Xy_valid.loc[Xy_valid['label'] == 1, :]
+        # Xy_test = Xy_test.loc[Xy_test['label'] == l, :]
+        print(Xy_train.shape, Xy_valid.shape)
+        Xy_train = Xy_train.sample(5000)
+        print(Xy_train.shape)
+
+
+
 
         # Datasets
         train_ds = TabularDataset(data=Xy_train, cat_cols=categorical_features, output_col='label')
@@ -70,7 +91,7 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         # net = FeedForwardNN(emb_dims, no_of_cont=116, lin_layer_sizes=params['lin_layer_sizes'],
         #                     output_size=3, emb_dropout=params['emb_dropout'],
         #                     lin_layer_dropouts=params['lin_layer_dropouts']).to(device)
-        net = AutoEncoder()
+        net = AutoEncoder(code)
 
         # criterion_weights = th.tensor([1 / 2., 1 / 6., 1 / 2.]).to(device)
         # criterion = nn.CrossEntropyLoss(weight=criterion_weights)
@@ -78,6 +99,10 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         # optimizer = SGD(net.parameters(), lr=params['lr'], momentum=params['momentum'])
         # optimizer = Adam(net.parameters(), lr=params['lr'], weight_decay=0.005)
         optimizer = Adam(net.parameters(), lr=params['lr'])
+
+
+
+
 
         # Metrics and Callbacks
         acc = Accuracy()
@@ -104,6 +129,19 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         # Make graph image
         # Todo: make this better. Redundant with dummy in trainer
         train_dl = trainer.make_data_loader(train_ds)
+
+
+        # Todo: doesn't work because dataset returns X_cont,X_cal and label, not X,label
+        # lr_finder = LRFinder(net, optimizer, criterion, device="cuda")
+        # lr_finder.range_test(train_dl, end_lr=1, num_iter=100)
+        # lr_finder.plot()
+        # 1/0
+
+
+
+
+
+
         dummy_cont, dummy_cat, dummy_y = next(iter(train_dl))
         dummy_cont, dummy_cat, dummy_y = dummy_cont.to(device), dummy_cat.to(device), dummy_y.to(device)
         # dummy_input = (dummy_cont, dummy_cat)
@@ -112,14 +150,15 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         graph_transforms = [hl.transforms.Fold('Constant > Gather > Gather', 'Embedding'),
                             hl.transforms.Fold('Unsqueeze > BatchNorm > Squeeze', 'BatchNorm'),
                             hl.transforms.Fold('Linear > Relu', 'LinearRelu'),
+                            hl.transforms.Fold('Linear > Selu', 'LinearSelu'),
                             hl.transforms.Fold('Dropout > LinearRelu > BatchNorm', 'LinearBlock')]
 
         graph = hl.build_graph(net, dummy_input, transforms=graph_transforms)
-        graph.save('../../reports/experiments/{}/{}/graph.png'.format(params['experiment'], date_time), format='png')
+        graph.save('{}graph.png'.format(params['report_path']), format='png')
 
         # Train
         model = trainer.train()
-        th.save(model, '../../reports/experiments/{}/{}/model.pth'.format(params['experiment'], date_time))
+        th.save(model, '{}model.pth'.format(params['report_path']))
 
         # Make confusion matrix
         # model.eval()  # should alse disable dropout
@@ -133,18 +172,19 @@ def run_experiment(Xy_train, Xy_valid, n_runs: int, parameters: dict, log_file: 
         # plot_confusion_matrix('../../reports/experiments/{}/{}/conf_matrix.png'.format(params['experiment'], date_time), y, y_pred, )
 
 
-
 if __name__ == '__main__':
+    date_time = strftime("%Y-%m-%d %H:%M:%S", gmtime())  # Session datetime
     params = {
-        'experiment': 'Autoencoder_116_110_116',
+        # 'experiment': 'Autoencoder_116-{}_lin_sample-5000_0_1',
+        'experiment': 'XXX',
         'workers': 0,  # Todo: check ideal nr of workers
-        'bs': 1024 * 1,
-        'n_epochs': 30000,
+        'bs': 256,
+        'n_epochs': 1000,
         'lr': 1e-3,
-        'lin_layer_sizes': [50, 10],
-        'emb_dropout': .0,
-        'lin_layer_dropouts': [.0, .5],
-        'momentum': 0.90,
+        # 'lin_layer_sizes': [50, 10],
+        # 'emb_dropout': .0,
+        # 'lin_layer_dropouts': [.0, .5],
+        # 'momentum': 0.90,
     }
 
     # DATA
@@ -162,6 +202,13 @@ if __name__ == '__main__':
     # print(Xy_train.columns.values)
     # cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
     # cols = ['label', 'm_start', 'm_end', 'q_start', 'sector', 'industry'] + [c for c in Xy_train.columns if c[:3] in ['RAT']]
-    cols = Xy_train.columns
 
-    run_experiment(Xy_train[cols], Xy_valid[cols], n_runs=1, parameters=params, log_file=False, tensorboard=True)
+    cols = Xy_train.columns
+    run_experiment(Xy_train[cols], Xy_valid[cols], n_runs=1, log_file=False, tensorboard=True)
+
+
+    net = AutoEncoder(5)
+    path = '/mnt/Development/My_Projects/fundamental_stock_analysis/reports/experiments/Autoencoder_116-5_lin_sample-5000_1_bis/2019-07-06 19:05:13/'
+    data = Xy_valid
+    predict(model=net, path=path, df=data, criterion=nn.MSELoss())
+
